@@ -13,6 +13,55 @@ async function getApiBaseUrl() {
     }
 }
 
+// Add styles for empty state messages
+document.addEventListener('DOMContentLoaded', () => {
+    const style = document.createElement('style');
+    style.textContent = `
+        .no-data {
+            text-align: center;
+            padding: 40px 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .no-data i {
+            font-size: 48px;
+            color: #d0d0d0;
+            margin-bottom: 15px;
+            display: block;
+        }
+        
+        .no-data p {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .no-data-subtext {
+            font-size: 14px !important;
+            color: #888 !important;
+            margin-top: 5px;
+        }
+        
+        .empty-table-message {
+            padding: 30px !important;
+            text-align: center;
+            font-size: 16px;
+            color: #666;
+            background-color: #f9f9f9;
+        }
+        
+        .empty-table-message i {
+            font-size: 24px;
+            color: #d0d0d0;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+    `;
+    document.head.appendChild(style);
+});
+
 // Mobile menu functionality
 function setupMobileMenu() {
     const mobileMenuToggle = document.getElementById('mobileMenuToggle');
@@ -1250,7 +1299,7 @@ async function loadServices() {
         // Check if services is empty or undefined
         if (!services || Object.keys(services).length === 0) {
             console.warn('No services returned from API');
-            showNotification('No services available', 'info');
+            showNotification('No services assigned to your account', 'info');
         }
         
         // Populate the services table
@@ -1263,19 +1312,19 @@ async function loadServices() {
                 const emptyRow = document.createElement('tr');
                 emptyRow.innerHTML = `
                     <td colspan="6" class="empty-table-message">
-                        <i class="fas fa-info-circle"></i> No services available
+                        <i class="fas fa-info-circle"></i> No services assigned to your account. Please contact your administrator to request access.
                     </td>
                 `;
                 tableBody.appendChild(emptyRow);
             } else {
                 // Display services in the table
-            Object.entries(services).forEach(([serviceName, service]) => {
-                const tr = document.createElement('tr');
+                Object.entries(services).forEach(([serviceName, service]) => {
+                    const tr = document.createElement('tr');
                     const isActive = service.isActive || service.status === 'active';
                     const hasImage = service.image && service.image.trim() !== '';
                     const imageUrl = hasImage ? `${apiBaseUrl}/${service.image}` : '';
                 
-                tr.innerHTML = `
+                    tr.innerHTML = `
                         <td>
                             <div class="service-table-info">
                                 ${hasImage ? 
@@ -1289,37 +1338,37 @@ async function loadServices() {
                                 <span>${serviceName}</span>
                             </div>
                         </td>
-                    <td>${service.description || 'No description'}</td>
-                    <td>$${service.price || '0'}</td>
-                    <td>${service.activeUsers || '0'}</td>
-                    <td>
+                        <td>${service.description || 'No description'}</td>
+                        <td>$${service.price || '0'}</td>
+                        <td>${service.activeUsers || '0'}</td>
+                        <td>
                             <span class="status-badge ${isActive ? 'active' : 'inactive'}">
                                 ${isActive ? 'Active' : 'Inactive'}
-                        </span>
-                    </td>
-                    <td>
-                        <div class="action-buttons">
-                            <button class="table-action-btn" onclick="viewServiceDetails('${serviceName}')">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-                    </td>
-                `;
-                tableBody.appendChild(tr);
-            });
+                            </span>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="table-action-btn" onclick="viewServiceDetails('${serviceName}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
             }
         } else {
             console.warn('Services table element not found');
         }
 
-            // Initialize refresh button functionality
-            const refreshButton = document.getElementById('refreshServicesTable');
-            if (refreshButton) {
+        // Initialize refresh button functionality
+        const refreshButton = document.getElementById('refreshServicesTable');
+        if (refreshButton) {
             refreshButton.onclick = () => {
-                    refreshButton.classList.add('rotating');
-                    loadServices().then(() => {
-                        setTimeout(() => refreshButton.classList.remove('rotating'), 1000);
-                    });
+                refreshButton.classList.add('rotating');
+                loadServices().then(() => {
+                    setTimeout(() => refreshButton.classList.remove('rotating'), 1000);
+                });
             };
         }
         
@@ -1328,7 +1377,7 @@ async function loadServices() {
         
         return services;
     } catch (err) {
-            console.error('Error loading services:', err);
+        console.error('Error loading services:', err);
         
         // Show a more detailed error message
         const errorMsg = err.message || 'Unknown error';
@@ -1361,6 +1410,31 @@ function loadUserServices() {
             
             tableBody.innerHTML = '';
 
+            if (!services || Object.keys(services).length === 0) {
+                // No services assigned to this reseller
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = `
+                    <td colspan="5" class="empty-table-message">
+                        <i class="fas fa-info-circle"></i> You don't have any services assigned to your account. 
+                        Please contact your administrator to request access to services before managing user services.
+                    </td>
+                `;
+                tableBody.appendChild(emptyRow);
+                return;
+            }
+
+            if (!users || Object.keys(users).length === 0) {
+                // No users managed by this reseller
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = `
+                    <td colspan="5" class="empty-table-message">
+                        <i class="fas fa-info-circle"></i> No users found. Add users first to manage their services.
+                    </td>
+                `;
+                tableBody.appendChild(emptyRow);
+                return;
+            }
+
             Object.entries(users).forEach(([username, user]) => {
                 if (user.role !== 'admin' && user.role !== 'reseller') {  // Only show regular users
                     const tr = document.createElement('tr');
@@ -1383,11 +1457,11 @@ function loadUserServices() {
                         </td>
                         <td>
                             <div class="service-assign-wrapper">
-                            <select class="service-dropdown" id="service-${username}">
-                                    <option value="">Add service...</option>
+                            <select class="service-dropdown" id="service-${username}"${serviceOptions ? '' : ' disabled'}>
+                                    <option value="">${serviceOptions ? 'Add service...' : 'No services available'}</option>
                                 ${serviceOptions}
                             </select>
-                            <button class="add-service-btn" onclick="addServiceToUser('${username}')">
+                            <button class="add-service-btn" onclick="addServiceToUser('${username}')"${serviceOptions ? '' : ' disabled'}>
                                 <i class="fas fa-plus"></i>
                             </button>
                             </div>
@@ -1416,6 +1490,18 @@ function loadUserServices() {
         .catch(err => {
             console.error('Error loading user services:', err);
             showNotification('Failed to load user services', 'error');
+
+            // Show error in table
+            const tableBody = document.getElementById('userServicesList');
+            if (tableBody) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="error-state">
+                            <i class="fas fa-exclamation-circle"></i> Error loading services. Please try again.
+                        </td>
+                    </tr>
+                `;
+            }
         });
 }
 
@@ -2307,7 +2393,8 @@ async function loadServicesGrid() {
             servicesGrid.innerHTML = `
                 <div class="no-data">
                     <i class="fas fa-info-circle"></i>
-                    <p>No services available.</p>
+                    <p>No services assigned to your account.</p>
+                    <p class="no-data-subtext">Please contact your administrator to request access to services.</p>
                 </div>
             `;
             return;
@@ -3021,9 +3108,172 @@ function checkForUpdates() {
         // Show notification
         showNotification('Checking for updates...', 'info');
     } else {
-        console.error('Update checking not available');
-        showNotification('Update checking not available in this environment', 'error');
+        // Manual update check if electronAPI is not available
+        checkForUpdatesManually();
     }
+}
+
+// Function to manually check for updates (similar to user.js implementation)
+async function checkForUpdatesManually() {
+    try {
+        // Get button and disable it during check
+        const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
+        if (checkUpdatesBtn) {
+            checkUpdatesBtn.disabled = true;
+            const originalText = checkUpdatesBtn.innerHTML;
+            checkUpdatesBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+            
+            // Re-enable after checking (handled at end of function)
+            setTimeout(() => {
+                if (checkUpdatesBtn.disabled) {
+                    checkUpdatesBtn.disabled = false;
+                    checkUpdatesBtn.innerHTML = originalText;
+                }
+            }, 30000); // 30-second timeout as failsafe
+        }
+        
+        const apiBaseUrl = await getApiBaseUrl();
+        console.log(`Using API base URL: ${apiBaseUrl}`);
+        showNotification('Checking for updates...', 'info');
+
+        // Add strong cache busting
+        const cacheBuster = `t=${new Date().getTime()}-${Math.random().toString(36).substring(2, 15)}`;
+        const updateUrl = `${apiBaseUrl}/updates/latest.json?${cacheBuster}`;
+        console.log(`Fetching update data from: ${updateUrl}`);
+
+        // Fetch the latest version information with no-cache headers
+        const response = await fetch(updateUrl, {
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+        }
+        
+        const updateData = await response.json();
+        console.log('Update data received:', updateData);
+        
+        if (!updateData.version) {
+            throw new Error('Invalid update data: Missing version information');
+        }
+        
+        const currentVersion = window.electronAPI?.getAppVersion ? await window.electronAPI.getAppVersion() : '1.0.0';
+        
+        console.log(`Current version: ${currentVersion}`);
+        console.log(`Latest version: ${updateData.version}`);
+        
+        // Update the UI with version info
+        const updateMessage = document.getElementById('currentAppVersion');
+        if (updateMessage) {
+            updateMessage.textContent = `v${currentVersion} (Latest: ${updateData.version})`;
+        }
+        
+        // Check if we found a new version
+        if (updateData && updateData.version && isNewer(currentVersion, updateData.version)) {
+            console.log(`✅ Update available! Current: ${currentVersion}, Available: ${updateData.version}`);
+            
+            // Get download URL
+            let downloadUrl = updateData.downloadUrl;
+            
+            // If platforms data exists and matches our platform, use that URL
+            if (updateData.platforms && updateData.platforms[`win32-x64`]) {
+                downloadUrl = updateData.platforms[`win32-x64`].downloadUrl || downloadUrl;
+            }
+            
+            console.log(`Download URL: ${downloadUrl}`);
+            
+            // Make sure download URL is valid
+            if (!downloadUrl) {
+                showNotification('Error: No download URL provided in update data', 'error');
+                return;
+            }
+            
+            // Update the UI message
+            if (updateMessage) {
+                updateMessage.innerHTML = `<span class="update-available">v${currentVersion} (Update v${updateData.version} available!)</span>`;
+            }
+            
+            // Ask user if they want to download the update
+            const shouldDownload = confirm(`Update v${updateData.version} is available. Do you want to download it now?`);
+            
+            if (shouldDownload) {
+                // Start the download using our new method
+                try {
+                    console.log(`Starting download from ${downloadUrl} for version ${updateData.version}`);
+                    downloadWithProgress(downloadUrl, updateData.version);
+                } catch (downloadError) {
+                    console.error('Download initiation error:', downloadError);
+                    showNotification(`Failed to start download: ${downloadError.message}`, 'error');
+                }
+            }
+        } else {
+            showNotification('You have the latest version!', 'success');
+            if (updateMessage) {
+                updateMessage.textContent = `v${currentVersion} (Up to date)`;
+            }
+        }
+        
+        // Re-enable update button if it exists
+        if (checkUpdatesBtn) {
+            checkUpdatesBtn.disabled = false;
+            checkUpdatesBtn.innerHTML = '<i class="fas fa-sync"></i> Check for Updates';
+        }
+        
+    } catch (error) {
+        console.error('Error in checkForUpdatesManually:', error);
+        showNotification('Update check failed: ' + error.message, 'error');
+        
+        // Re-enable update button if it exists
+        const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
+        if (checkUpdatesBtn) {
+            checkUpdatesBtn.disabled = false;
+            checkUpdatesBtn.innerHTML = '<i class="fas fa-sync"></i> Check for Updates';
+        }
+    }
+}
+
+// Helper function to compare version strings
+function isNewer(current, latest) {
+    console.log(`Comparing versions - Current: ${current}, Latest: ${latest}`);
+    
+    // Handle numeric versions (like '4' vs '1.0.0')
+    if (!isNaN(latest) && !isNaN(current)) {
+        return Number(latest) > Number(current);
+    }
+    
+    // Handle simple version formats like "4" vs "1.0.0"
+    if (!latest.includes('.') && current.includes('.')) {
+        return Number(latest) > Number(current.split('.')[0]);
+    }
+    
+    if (latest.includes('.') && !current.includes('.')) {
+        return Number(latest.split('.')[0]) > Number(current);
+    }
+    
+    // Standard semantic version comparison
+    const currentParts = current.split('.').map(Number);
+    const latestParts = latest.split('.').map(Number);
+    
+    // Ensure arrays have equal length by padding with zeros
+    while (currentParts.length < 3) currentParts.push(0);
+    while (latestParts.length < 3) latestParts.push(0);
+    
+    for (let i = 0; i < 3; i++) {
+        if (latestParts[i] > currentParts[i]) {
+            console.log(`Latest version ${latest} is newer than current version ${current}`);
+            return true;
+        }
+        if (latestParts[i] < currentParts[i]) {
+            console.log(`Latest version ${latest} is older than current version ${current}`);
+            return false;
+        }
+    }
+    console.log(`Versions are equal: ${latest} = ${current}`);
+    return false; // Versions are equal
 }
 
 // Setup update checker in settings page

@@ -169,7 +169,10 @@ app.get('/', (req, res) => {
 });
 
 // High-priority reseller services endpoint that doesn't require authentication
-app.get('/reseller/services', (req, res) => {
+// NOTE: This route is superseded by the implementation later in the file that
+// properly filters services based on what's assigned to each reseller.
+// This version is kept for backward compatibility with tests.
+app.get('/reseller/services-debug', (req, res) => {
     try {
         // Don't require authentication for testing
         const services = getServices();
@@ -184,7 +187,7 @@ app.get('/reseller/services', (req, res) => {
         }, {});
         res.json(servicesWithFeatures);
     } catch (error) {
-        console.error('Error in /reseller/services:', error);
+        console.error('Error in /reseller/services-debug:', error);
         res.status(500).json({ error: 'Failed to fetch services' });
     }
 });
@@ -2376,24 +2379,76 @@ const startServer = () => {
       // Add the route directly here as a fallback
       app.get('/reseller/services', (req, res) => {
         try {
+          // Get the session ID from request headers
+          const authHeader = req.headers.authorization || '';
+          const sessionId = authHeader.replace('Bearer ', '');
+          
+          // Verify that the request is from a reseller
+          const sessions = getSessions();
+          let isReseller = false;
+          let resellerUsername = '';
+          
+          for (const username in sessions) {
+            if (sessions[username].sessionId === sessionId && sessions[username].role === 'reseller') {
+              isReseller = true;
+              resellerUsername = username;
+              break;
+            }
+          }
+          
+          if (!isReseller) {
+            return res.status(403).json({ 
+              status: 'error',
+              message: 'Unauthorized access. Only resellers can access this endpoint.'
+            });
+          }
+          
           const services = getServices();
           const users = getUsers();
-          const servicesWithStats = Object.entries(services).reduce((acc, [serviceName, service]) => {
-            let activeUsers = 0;
-            for (const username in users) {
-              if (users[username].services && users[username].services.includes(serviceName)) {
-                activeUsers++;
+          
+          // Check if the reseller has assigned services
+          const resellerUser = users[resellerUsername];
+          if (!resellerUser) {
+            return res.status(404).json({
+              status: 'error',
+              message: 'Reseller user not found'
+            });
+          }
+          
+          // Get the services assigned to this reseller
+          const assignedServices = resellerUser.services || [];
+          
+          // If no services assigned, return empty object
+          if (assignedServices.length === 0) {
+            return res.json({});
+          }
+          
+          // Filter services to only include those assigned to this reseller
+          const servicesWithStats = {};
+          assignedServices.forEach(serviceName => {
+            if (services[serviceName]) {
+              // Count active users for this service
+              let activeUsers = 0;
+              for (const username in users) {
+                if (users[username].services && 
+                    users[username].services.includes(serviceName) && 
+                    users[username].createdBy === resellerUsername) {
+                  activeUsers++;
+                }
               }
+              
+              // Add service to response with additional information
+              servicesWithStats[serviceName] = {
+                ...services[serviceName],
+                activeUsers,
+                isActive: services[serviceName].status === 'active'
+              };
             }
-            acc[serviceName] = {
-              ...service,
-              activeUsers,
-              isActive: service.status === 'active'
-            };
-            return acc;
-          }, {});
+          });
+          
           res.json(servicesWithStats);
         } catch (error) {
+          console.error('Error in fallback /reseller/services route:', error);
           res.status(500).json({ error: 'Failed to fetch services' });
         }
       });
@@ -2589,31 +2644,283 @@ app.get('/reseller/services', (req, res) => {
         const services = getServices();
         const users = getUsers();
         
-        // Calculate active users for each service
-        const servicesWithStats = Object.entries(services).reduce((acc, [serviceName, service]) => {
+        // Check if the reseller has assigned services
+        const resellerUser = users[resellerUsername];
+        if (!resellerUser) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'Reseller user not found'
+            });
+        }
+        
+        // Get the services assigned to this reseller
+        const assignedServices = resellerUser.services || [];
+        
+        // Filter services to only include those assigned to this reseller
+        const servicesWithStats = {};
+        assignedServices.forEach(serviceName => {
+            if (services[serviceName]) {
             // Count active users for this service
             let activeUsers = 0;
             for (const username in users) {
-                if (users[username].services && users[username].services.includes(serviceName)) {
+                    if (users[username].services && 
+                        users[username].services.includes(serviceName) && 
+                        users[username].createdBy === resellerUsername) {
                     activeUsers++;
                 }
             }
             
             // Add service to response with additional information
-            acc[serviceName] = {
-                ...service,
+                servicesWithStats[serviceName] = {
+                    ...services[serviceName],
                 activeUsers,
-                isActive: service.status === 'active',
-                // Add features array if it doesn't exist
-                features: service.features || [
+                    isActive: services[serviceName].status === 'active',
+                    features: services[serviceName].features || [
                     "Basic support",
                     "Standard performance",
                     "Regular updates"
                 ]
             };
+            }
+        });
+        
+        res.json(servicesWithStats);
+    } catch (error) {
+        console.error('Error fetching services for reseller:', error);
+        res.status(500).json({ 
+            status: 'error',
+            message: 'Failed to fetch services'
+        });
+    }
+});
+
+// Add endpoint for admins to assign services to resellers
+app.post('/admin/assign-reseller-service', (req, res) => {
+    try {
+        const { resellerUsername, serviceName, sessionId } = req.body;
+        
+        if (!resellerUsername || !serviceName || !sessionId) {
+            return res.status(400).json({ 
+                status: 'error',
+                message: 'Missing required fields: resellerUsername, serviceName, sessionId'
+            });
+        }
+        
+        // Verify admin session
+        const sessions = getSessions();
+        let isAdmin = false;
+        let adminUsername = '';
+        
+        for (const username in sessions) {
+            if (sessions[username].sessionId === sessionId && sessions[username].role === 'admin') {
+                isAdmin = true;
+                adminUsername = username;
+                break;
+            }
+        }
+        
+        if (!isAdmin) {
+            return res.status(403).json({ 
+                status: 'error',
+                message: 'Unauthorized access. Only admins can assign services to resellers.'
+            });
+        }
+        
+        // Get users and services data
+        const users = getUsers();
+        const services = getServices();
+        
+        // Check if reseller exists and is actually a reseller
+        if (!users[resellerUsername]) {
+            return res.status(404).json({ 
+                status: 'error',
+                message: 'Reseller not found'
+            });
+        }
+        
+        if (users[resellerUsername].role !== 'reseller') {
+            return res.status(400).json({ 
+                status: 'error',
+                message: 'User is not a reseller'
+            });
+        }
+        
+        // Check if service exists
+        if (!services[serviceName]) {
+            return res.status(404).json({ 
+                status: 'error',
+                message: 'Service not found'
+            });
+        }
+        
+        // Initialize services array if it doesn't exist
+        if (!users[resellerUsername].services) {
+            users[resellerUsername].services = [];
+        }
+        
+        // Initialize serviceDetails object if it doesn't exist
+        if (!users[resellerUsername].serviceDetails) {
+            users[resellerUsername].serviceDetails = {};
+        }
+        
+        // Check if the service is already assigned
+        const isServiceAssigned = users[resellerUsername].services.includes(serviceName);
+        
+        if (isServiceAssigned) {
+            // Remove the service (toggle behavior)
+            users[resellerUsername].services = users[resellerUsername].services.filter(s => s !== serviceName);
+            if (users[resellerUsername].serviceDetails[serviceName]) {
+                delete users[resellerUsername].serviceDetails[serviceName];
+            }
             
-            return acc;
-        }, {});
+            // Save changes
+            saveUsers(users);
+            
+            return res.json({ 
+                status: 'success',
+                message: `Service "${serviceName}" has been removed from reseller ${resellerUsername}`,
+                action: 'removed'
+            });
+        } else {
+            // Assign the service with expiration date
+            const now = new Date();
+            const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+            const expiration = new Date(now.getTime() + thirtyDaysInMs);
+            
+            users[resellerUsername].services.push(serviceName);
+            users[resellerUsername].serviceDetails[serviceName] = {
+                assignedDate: now.toISOString(),
+                expirationDate: expiration.toISOString(),
+                assignedBy: adminUsername
+            };
+            
+            // Save changes
+            saveUsers(users);
+            
+            return res.json({ 
+                status: 'success',
+                message: `Service "${serviceName}" has been assigned to reseller ${resellerUsername}`,
+                action: 'assigned'
+            });
+        }
+    } catch (error) {
+        console.error('Error assigning service to reseller:', error);
+        res.status(500).json({ 
+            status: 'error',
+            message: 'Failed to assign service to reseller'
+        });
+    }
+});
+
+// Endpoint for admins to get reseller services
+app.get('/admin/reseller-services/:username', (req, res) => {
+    try {
+        const { username } = req.params;
+        
+        // Get the session ID from request headers
+        const authHeader = req.headers.authorization || '';
+        const sessionId = authHeader.replace('Bearer ', '');
+        
+        // Verify admin session
+        const sessions = getSessions();
+        let isAdmin = false;
+        
+        for (const user in sessions) {
+            if (sessions[user].sessionId === sessionId && sessions[user].role === 'admin') {
+                isAdmin = true;
+                break;
+            }
+        }
+        
+        if (!isAdmin) {
+            return res.status(403).json({ 
+                status: 'error',
+                message: 'Unauthorized access. Only admins can view reseller services.'
+            });
+        }
+        
+        // Get users and services data
+        const users = getUsers();
+        const services = getServices();
+        
+        // Check if reseller exists
+        if (!users[username]) {
+            return res.status(404).json({ 
+                status: 'error',
+                message: 'Reseller not found'
+            });
+        }
+        
+        // Get assigned services
+        const assignedServices = users[username].services || [];
+        const serviceDetails = users[username].serviceDetails || {};
+        
+        // Prepare response data
+        const servicesData = {};
+        
+        // Add all available services with assignment status
+        Object.keys(services).forEach(serviceName => {
+            const isAssigned = assignedServices.includes(serviceName);
+            servicesData[serviceName] = {
+                ...services[serviceName],
+                isAssigned,
+                assignmentDetails: isAssigned ? serviceDetails[serviceName] : null
+            };
+        });
+        
+        res.json(servicesData);
+    } catch (error) {
+        console.error('Error fetching reseller services:', error);
+        res.status(500).json({ 
+            status: 'error',
+            message: 'Failed to fetch reseller services'
+        });
+    }
+});
+
+// Update the simple reseller services endpoint with the same filtering logic
+app.get('/reseller/services-public', (req, res) => {
+    try {
+        // Get the query parameter for the reseller username
+        const { username } = req.query;
+        
+        if (!username) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Missing reseller username'
+            });
+        }
+        
+        const services = getServices();
+        const users = getUsers();
+        
+        // Check if the reseller exists
+        if (!users[username] || users[username].role !== 'reseller') {
+            return res.status(404).json({
+                status: 'error',
+                message: 'Reseller not found'
+            });
+        }
+        
+        // Get the services assigned to this reseller
+        const assignedServices = users[username].services || [];
+        
+        // Filter services to only include those assigned to this reseller
+        const servicesWithStats = {};
+        assignedServices.forEach(serviceName => {
+            if (services[serviceName]) {
+                servicesWithStats[serviceName] = {
+                    ...services[serviceName],
+                    activeUsers: 0, // Placeholder
+                    isActive: services[serviceName].status === 'active',
+                    features: services[serviceName].features || [
+                        "Basic support",
+                        "Standard performance",
+                        "Regular updates"
+                    ]
+                };
+            }
+        });
         
         res.json(servicesWithStats);
     } catch (error) {
@@ -3138,34 +3445,78 @@ app.get('/reseller/services-public', (req, res) => {
 // Simplified reseller services endpoint with minimal authentication
 app.get('/reseller/services', (req, res) => {
     try {
+        // Get the session ID from request headers
+        const authHeader = req.headers.authorization || '';
+        const sessionId = authHeader.replace('Bearer ', '');
+        
+        // Verify that the request is from a reseller
+        const sessions = getSessions();
+        let isReseller = false;
+        let resellerUsername = '';
+        
+        for (const username in sessions) {
+            if (sessions[username].sessionId === sessionId && sessions[username].role === 'reseller') {
+                isReseller = true;
+                resellerUsername = username;
+                break;
+            }
+        }
+        
+        if (!isReseller) {
+            return res.status(403).json({ 
+                status: 'error',
+                message: 'Unauthorized access. Only resellers can access this endpoint.'
+            });
+        }
+        
         // Get services and users data
         const services = getServices();
         const users = getUsers();
         
-        // Calculate active users for each service
-        const servicesWithStats = Object.entries(services).reduce((acc, [serviceName, service]) => {
-            // Count active users for this service
-            let activeUsers = 0;
-            for (const username in users) {
-                if (users[username].services && users[username].services.includes(serviceName)) {
-                    activeUsers++;
+        // Check if the reseller has assigned services
+        const resellerUser = users[resellerUsername];
+        if (!resellerUser) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'Reseller user not found'
+            });
+        }
+        
+        // Get the services assigned to this reseller
+        const assignedServices = resellerUser.services || [];
+        
+        // If no services assigned, return empty object
+        if (assignedServices.length === 0) {
+            return res.json({});
+        }
+        
+        // Filter services to only include those assigned to this reseller
+        const servicesWithStats = {};
+        assignedServices.forEach(serviceName => {
+            if (services[serviceName]) {
+                // Count active users for this service
+                let activeUsers = 0;
+                for (const username in users) {
+                    if (users[username].services && 
+                        users[username].services.includes(serviceName) && 
+                        users[username].createdBy === resellerUsername) {
+                        activeUsers++;
+                    }
                 }
+                
+                // Add service to response with additional information
+                servicesWithStats[serviceName] = {
+                    ...services[serviceName],
+                    activeUsers,
+                    isActive: services[serviceName].status === 'active',
+                    features: services[serviceName].features || [
+                        "Basic support",
+                        "Standard performance",
+                        "Regular updates"
+                    ]
+                };
             }
-            
-            // Add service to response with additional information
-            acc[serviceName] = {
-                ...service,
-                activeUsers,
-                isActive: service.status === 'active',
-                features: service.features || [
-                    "Basic support",
-                    "Standard performance",
-                    "Regular updates"
-                ]
-            };
-            
-            return acc;
-        }, {});
+        });
         
         res.json(servicesWithStats);
     } catch (error) {
