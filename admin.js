@@ -4291,6 +4291,9 @@ function handleUpdateUpload(event) {
     const formData = new FormData(document.getElementById('updateForm'));
     const sessionId = localStorage.getItem('session_id');
     
+    // Add sessionId to the form data for server-side authentication
+    formData.append('sessionId', sessionId);
+    
     // Get form values for validation
     const version = formData.get('version');
     const platform = formData.get('platform');
@@ -4335,6 +4338,15 @@ function handleUpdateUpload(event) {
         return;
     }
     
+    // Check file size and show a warning for large files
+    const fileSizeMB = updateFile.size / (1024 * 1024);
+    if (fileSizeMB > 50) {
+        showNotification(
+            `Large file detected (${fileSizeMB.toFixed(2)}MB). Upload may take some time and the page might appear to freeze. Please be patient.`, 
+            'warning'
+        );
+    }
+    
     // Show loading state and create progress bar
     const submitButton = document.querySelector('#updateForm button[type="submit"]');
     const originalButtonText = submitButton.innerHTML;
@@ -4362,6 +4374,9 @@ function handleUpdateUpload(event) {
     // Create XMLHttpRequest to track progress
     const xhr = new XMLHttpRequest();
     
+    // Set longer timeout for large files
+    xhr.timeout = 15 * 60 * 1000; // 15 minutes timeout
+    
     xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
             const percentComplete = Math.round((e.loaded / e.total) * 100);
@@ -4370,6 +4385,15 @@ function handleUpdateUpload(event) {
             
             // Update button text with percentage
             submitButton.innerHTML = `<i class="fas fa-upload"></i> Uploading... ${percentComplete}%`;
+            
+            // When upload reaches 100%, show a processing message
+            if (percentComplete === 100) {
+                progressText.textContent = "100% - Processing file...";
+                showNotification(
+                    "Upload complete. Server is now processing the file. Please wait...", 
+                    "info"
+                );
+            }
         }
     });
 
@@ -4385,13 +4409,25 @@ function handleUpdateUpload(event) {
                     loadVersionInfo();
                     loadUpdateHistory();
                 } else {
-                    showNotification(`Failed to upload update: ${response.message}`, 'error');
+                    showNotification(`Failed to upload update: ${response.message || 'Unknown error'}`, 'error');
+                    console.error('Server responded with error:', response);
                 }
             } catch (error) {
                 showNotification('Error processing server response', 'error');
+                console.error('Error parsing server response:', error, xhr.responseText);
             }
         } else {
             showNotification(`Upload failed with status: ${xhr.status}`, 'error');
+            console.error('Server responded with status:', xhr.status, xhr.statusText);
+            if (xhr.responseText) {
+                try {
+                    const errorResponse = JSON.parse(xhr.responseText);
+                    console.error('Error details:', errorResponse);
+                    showNotification(`Error: ${errorResponse.message || errorResponse.error || 'Unknown error'}`, 'error');
+                } catch (e) {
+                    console.error('Raw response:', xhr.responseText);
+                }
+            }
         }
 
         // Reset UI
@@ -4401,7 +4437,16 @@ function handleUpdateUpload(event) {
     });
 
     xhr.addEventListener('error', () => {
-        showNotification('Error uploading update. Check console for details.', 'error');
+        showNotification('Network error during upload. Check your connection and try again.', 'error');
+        console.error('Network error during upload.');
+        submitButton.innerHTML = originalButtonText;
+        submitButton.disabled = false;
+        progressContainer.remove();
+    });
+
+    xhr.addEventListener('timeout', () => {
+        showNotification('Upload timed out. The file may be too large or the server may be busy.', 'error');
+        console.error('Upload timed out after 15 minutes.');
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
         progressContainer.remove();

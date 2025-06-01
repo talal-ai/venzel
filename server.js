@@ -31,19 +31,50 @@ const app = express();
 const PORT = process.env.PORT || 8095;
 const WS_PORT = process.env.WS_PORT || 8096;
 
+// Set timeout values for large file uploads
+app.timeout = 15 * 60 * 1000; // 15 minutes server timeout
+const server = require('http').createServer(app);
+server.timeout = 15 * 60 * 1000; // 15 minutes
+
+// Extended timeout for keep-alive connections
+server.keepAliveTimeout = 15 * 60 * 1000; // 15 minutes
+server.headersTimeout = 16 * 60 * 1000; // 16 minutes (must be higher than keepAliveTimeout)
+
 // Initialize WebSocket server
 const WebSocket = require('ws');
 let wss;
 try {
-  wss = new WebSocket.Server({ port: WS_PORT });
-  console.log(`✅ WebSocket server initialized on port ${WS_PORT}`);
+  // Create WebSocket server with increased timeout
+  const wsOptions = {
+    port: WS_PORT,
+    clientTracking: true,
+    perMessageDeflate: false, // Disable compression for large messages
+    maxPayload: 500 * 1024 * 1024, // 500MB max payload
+    // Set WebSocket timeout values
+    serverOptions: {
+      timeout: 15 * 60 * 1000 // 15 minutes timeout
+    }
+  };
+  
+  wss = new WebSocket.Server(wsOptions);
+  console.log(`✅ WebSocket server initialized on port ${WS_PORT} with extended timeout`);
 } catch (error) {
   console.error(`❌ Error starting WebSocket server on port ${WS_PORT}:`, error.message);
   console.log(`📌 Trying alternate port ${WS_PORT + 1}...`);
   try {
-    // Try a different port
-    wss = new WebSocket.Server({ port: WS_PORT + 1 });
-    console.log(`✅ WebSocket server initialized on alternate port ${WS_PORT + 1}`);
+    // Try a different port with same timeout settings
+    const wsOptions = {
+      port: WS_PORT + 1,
+      clientTracking: true,
+      perMessageDeflate: false,
+      maxPayload: 500 * 1024 * 1024,
+      serverOptions: {
+        timeout: 15 * 60 * 1000
+      }
+    };
+    
+    wss = new WebSocket.Server(wsOptions);
+    console.log(`✅ WebSocket server initialized on alternate port ${WS_PORT + 1} with extended timeout`);
   } catch (fallbackError) {
     console.error(`❌ Failed to start WebSocket server on alternate port:`, fallbackError.message);
     // Continue without WebSocket functionality
@@ -158,17 +189,6 @@ app.get('/reseller/services', (req, res) => {
     }
 });
 
-// Test endpoint for connectivity checks
-app.get('/test-connection', (req, res) => {
-    res.json({
-        status: 'success',
-        message: 'Connection test successful',
-        timestamp: new Date().toISOString(),
-        headers: req.headers,
-        cookies: req.cookies || {},
-        session: req.session || {}
-    });
-});
 
 // ✅ Serve static files from the correct directory
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
@@ -213,7 +233,12 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ 
+    limit: '50mb',
+    extended: true,
+    parameterLimit: 50000
+}));
 
 // Define data directory path once and use it consistently throughout the app
 const dataDirectory = path.join(__dirname, 'sessions', 'data');
@@ -380,7 +405,41 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({ storage: storage });
+// Configure multer storage specifically for app updates
+const updateStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        // Store update files in a temporary directory first
+        const dir = path.join(__dirname, 'updates', 'temp');
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        cb(null, dir);
+    },
+    filename: function (req, file, cb) {
+        // Preserve original extension but use timestamp for filename
+        const timestamp = Date.now();
+        const ext = path.extname(file.originalname);
+        cb(null, `update-${timestamp}${ext}`);
+    }
+});
+
+// Regular upload instance for normal uploads
+const upload = multer({ 
+    storage: storage,
+    limits: {
+        fileSize: 50 * 1024 * 1024 // 50MB limit for regular uploads
+    }
+});
+
+// Special upload instance for app updates with much higher limits
+const updateUpload = multer({
+    storage: updateStorage,
+    limits: {
+        fileSize: 1024 * 1024 * 1024, // 1GB limit for app updates
+        fieldSize: 100 * 1024 * 1024, // 100MB field size limit
+        files: 1 // Only allow one file per request
+    }
+});
 
 // ✅ Login Route
 app.post('/auth', (req, res) => {
@@ -2341,10 +2400,12 @@ const startServer = () => {
       console.log('✅ Added fallback /reseller/services route');
     }
     
+    // Use server.listen instead of app.listen to use our configured HTTP server with timeout
     app.listen(PORT, () => {
       console.log(`✅ Server running at https://venzell.skplay.net:${PORT}`);
       console.log(`✅ WebSocket server running at wss://venzell.skplay.net:${wss.address()?.port || 'N/A'}`);
       console.log(`✅ Server environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`✅ Server timeout set to ${server.timeout/60000} minutes for large file uploads`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
@@ -4361,12 +4422,40 @@ app.get('/updates/history', (req, res) => {
     }
 });
 
+// Helper function to get session by ID
+function getSessionById(sessionId) {
+    if (!sessionId) return null;
+    
+    const sessions = getSessions();
+    for (const username in sessions) {
+        if (sessions[username].sessionId === sessionId) {
+            return {
+                ...sessions[username],
+                username
+            };
+        }
+    }
+    
+    return null;
+}
+
 // Modify the upload update endpoint to also save to history
-app.post('/admin/upload-update', upload.single('updateFile'), async (req, res) => {
+app.post('/admin/upload-update', updateUpload.single('updateFile'), async (req, res) => {
     try {
+        console.log('Received update upload request with file size:', req.file ? req.file.size : 'unknown');
         const { version, platform, architecture, releaseNotes } = req.body;
         const updateFile = req.file;
         const updateLatestJson = req.body.updateLatestJson;
+        
+        // Verify authentication
+        const sessionId = req.body.sessionId;
+        const session = getSessionById(sessionId);
+        if (!session || session.role !== 'admin') {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Unauthorized. Admin privileges required.'
+            });
+        }
         
         // Validate inputs
         if (!version || !platform || !architecture || !updateFile) {
@@ -4391,6 +4480,8 @@ app.post('/admin/upload-update', upload.single('updateFile'), async (req, res) =
         if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
         }
+        
+        console.log(`Moving file from ${updateFile.path} to ${filePath}, size: ${updateFile.size} bytes`);
         
         // Move the uploaded file with the new name
         fs.renameSync(updateFile.path, filePath);
@@ -4486,7 +4577,8 @@ app.post('/admin/upload-update', upload.single('updateFile'), async (req, res) =
         console.error('Error uploading update file:', error);
         res.status(500).json({ 
             status: 'error', 
-            message: 'Failed to upload update file'
+            message: 'Failed to upload update file',
+            error: error.message
         });
     }
 });
@@ -4727,13 +4819,15 @@ platforms.forEach(platform => {
 });
 
 // Update the /admin/upload-update endpoint to handle platform-specific uploads
-app.post('/admin/upload-update', upload.single('updateFile'), async (req, res) => {
+app.post('/admin/upload-update', updateUpload.single('updateFile'), async (req, res) => {
     try {
         // Verify admin privileges
         const session = getSessionById(req.body.sessionId);
         if (!session || session.role !== 'admin') {
             return res.status(403).json({ success: false, message: 'Unauthorized access' });
         }
+
+        console.log(`Processing large file upload with size: ${req.file ? req.file.size : 'unknown'} bytes`);
 
         // Validate required fields
         const { version, releaseNotes, platform, architecture } = req.body;
@@ -4770,8 +4864,45 @@ app.post('/admin/upload-update', upload.single('updateFile'), async (req, res) =
         const filename = `app-${version}${fileExt}`;
         const filePath = path.join(platformDir, filename);
 
+        console.log(`Moving file from ${req.file.path} to ${filePath}, size: ${req.file.size} bytes`);
+
         // Move the uploaded file to the updates directory with the new name
-        fs.renameSync(req.file.path, filePath);
+        try {
+            // Create a read stream from the source file
+            const readStream = fs.createReadStream(req.file.path);
+            // Create a write stream to the destination
+            const writeStream = fs.createWriteStream(filePath);
+            
+            // Handle any errors that occur during the streaming process
+            readStream.on('error', (err) => {
+                console.error('Error reading from source file:', err);
+                throw err;
+            });
+            
+            writeStream.on('error', (err) => {
+                console.error('Error writing to destination file:', err);
+                throw err;
+            });
+            
+            // Return a promise that resolves when the stream is done
+            await new Promise((resolve, reject) => {
+                writeStream.on('finish', resolve);
+                writeStream.on('error', reject);
+                readStream.pipe(writeStream);
+            });
+            
+            // Delete the source file after successful move
+            fs.unlinkSync(req.file.path);
+            
+            console.log(`File successfully moved to ${filePath}`);
+        } catch (copyError) {
+            console.error('Error moving file:', copyError);
+            return res.status(500).json({ 
+                success: false, 
+                message: 'Error saving update file', 
+                error: copyError.message 
+            });
+        }
 
         // Update RELEASES files according to platform
         if (platform === 'win32') {
