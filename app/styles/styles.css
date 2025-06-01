@@ -1,0 +1,30 @@
+/* Blurs the text in fields */
+.secure-field-blur {
+    color: transparent !important;
+    text-shadow: 0 0 8px rgba(0, 0, 0, 0.5) !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+/* Prevents highlighting and copying of blurred text */
+.secure-field-blur::selection {
+    background-color: transparent !important;
+}
+
+.secure-field-blur::-moz-selection {
+    background-color: transparent !important;
+}
+
+/* Hides password field toggles or autofill buttons */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear,
+input[type="password"]::-webkit-contacts-auto-fill-button,
+input[type="password"]::-webkit-credentials-auto-fill-button {
+    display: none !important;
+    pointer-events: none !important;
+}
+
+/* Example: Additional styles for hidden elements */
+.hidden-by-extension {
+    display: none !important;
+}

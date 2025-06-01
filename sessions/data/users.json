@@ -1,0 +1,63 @@
+{
+  "admin": {
+    "password": "admin123",
+    "fullName": "Admin User",
+    "role": "admin",
+    "services": [
+      "chatgpt",
+      "bing"
+    ],
+    "serviceDetails": {
+      "chatgpt": {
+        "assignedBy": "system",
+        "assignedDate": "2025-05-20T18:33:43.219Z",
+        "expirationDate": "2025-06-19T18:33:43.219Z",
+        "isActive": true
+      },
+      "bing": {
+        "assignedBy": "system",
+        "assignedDate": "2025-05-20T18:33:43.219Z",
+        "expirationDate": "2025-06-19T18:33:43.219Z",
+        "isActive": true
+      }
+    }
+  },
+  "reseller": {
+    "password": "reseller123",
+    "fullName": "Test Reseller",
+    "role": "reseller",
+    "services": []
+  },
+  "user": {
+    "password": "user123",
+    "fullName": "Test User",
+    "role": "user",
+    "services": [
+      "chatgpt"
+    ],
+    "serviceDetails": {
+      "chatgpt": {
+        "assignedBy": "reseller",
+        "assignedDate": "2025-05-20T18:33:43.219Z",
+        "expirationDate": "2025-06-19T18:33:43.219Z",
+        "isActive": true
+      }
+    }
+  },
+  "testuser": {
+    "password": "test123",
+    "fullName": "Another Test User",
+    "role": "user",
+    "services": [
+      "chatgpt"
+    ],
+    "serviceDetails": {
+      "chatgpt": {
+        "assignedBy": "test",
+        "assignedDate": "2025-05-20T18:33:50.613Z",
+        "expirationDate": "2025-06-19T18:33:50.613Z",
+        "isActive": true
+      }
+    }
+  }
+}

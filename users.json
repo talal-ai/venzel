@@ -1,0 +1,91 @@
+{
+    "1": {
+        "password": "1",
+        "role": "user",
+        "joinDate": "2025-02-03T00:23:24.320Z",
+        "isActive": false,
+        "services": [
+            "ChatGPT",
+            "Semrush"
+        ],
+        "serviceDetails": {
+            "ChatGPT": {
+                "assignedDate": "2025-04-12T21:35:53.797Z",
+                "expirationDate": "2025-05-12T21:35:53.797Z"
+            },
+            "Semrush": {
+                "assignedDate": "2025-04-21T14:12:53.785Z",
+                "expirationDate": "2025-05-21T14:12:53.785Z"
+            }
+        }
+    },
+    "2": {
+        "password": "2",
+        "role": "admin",
+        "joinDate": "2025-02-03T00:28:33.084Z",
+        "isActive": false,
+        "services": []
+    },
+    "22": {
+        "password": "22",
+        "role": "user",
+        "joinDate": "2025-02-03T02:21:55.602Z",
+        "isActive": false,
+        "services": [
+            "Semrush"
+        ],
+        "serviceDetails": {
+            "Semrush": {
+                "assignedDate": "2025-04-25T21:43:46.022Z",
+                "expirationDate": "2025-05-25T21:43:46.022Z"
+            }
+        }
+    },
+    "123": {
+        "password": "123",
+        "role": "reseller",
+        "joinDate": "2025-02-17T02:35:05.490Z",
+        "isActive": false
+    },
+    "Sultan": {
+        "password": "123",
+        "role": "reseller",
+        "joinDate": "2025-02-19T07:25:32.817Z",
+        "isActive": false,
+        "services": [],
+        "serviceDetails": {}
+    },
+    "talal": {
+        "password": "1",
+        "role": "user",
+        "joinDate": "2025-02-19T10:58:24.378Z",
+        "isActive": false,
+        "services": [],
+        "serviceDetails": {}
+    },
+    "talall": {
+        "password": "1",
+        "role": "user",
+        "joinDate": "2025-02-19T11:07:30.558Z",
+        "isActive": false,
+        "services": [],
+        "serviceDetails": {}
+    },
+    "has1": {
+        "password": "123",
+        "role": "user",
+        "fullName": "hassan",
+        "joinDate": "2025-03-14T06:51:14.835Z",
+        "status": "Active",
+        "services": [],
+        "serviceDetails": {}
+    },
+    "rew": {
+        "password": "rew",
+        "role": "admin",
+        "fullName": "rw",
+        "joinDate": "2025-04-21T14:27:50.944Z",
+        "status": "Active",
+        "services": []
+    }
+}

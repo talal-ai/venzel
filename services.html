@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Services Management</title>
+    <link rel="stylesheet" href="services.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+</head>
+<body>
+    <div class="services-page">
+        <div class="services-header">
+            <h1>Services Management</h1>
+            <div class="services-stats">
+                <div class="stat-box">
+                    <h3>Total Services</h3>
+                    <p id="totalServices">6</p>
+                    <small>Available services</small>
+                </div>
+                <div class="stat-box">
+                    <h3>Active Services</h3>
+                    <p id="serviceUsers">0</p>
+                    <small>Using services</small>
+                </div>
+            </div>
+            <div class="add-service-section">
+                <button id="addServiceBtn" class="add-service-btn">
+                    <i class="fas fa-plus"></i> Add New Service
+                </button>
+            </div>
+        </div>
+
+        <div class="services-container">
+            <div class="services-grid">
+                <!-- Services will be loaded here dynamically -->
+            </div>
+        </div>
+
+        <!-- Add Service Modal -->
+        <div id="addServiceModal" class="modal">
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <h2>Add New Service</h2>
+                <form id="addServiceForm">
+                    <div class="form-group">
+                        <label for="serviceName">Service Name</label>
+                        <input type="text" id="serviceName" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="serviceUrl">Service URL (example: google.com)</label>
+                        <input type="text" 
+                               id="serviceUrl" 
+                               required 
+                               pattern="[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.com$"
+                               placeholder="example.com"
+                               title="Enter URL in format: example.com">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="serviceImage">Service Logo</label>
+                        <div class="image-upload-container">
+                            <input type="file" id="serviceImage" accept="image/*" required>
+                            <div id="imagePreview" class="image-preview"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="serviceStatus">Initial Status</label>
+                        <select id="serviceStatus">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="submit-btn">Add Service</button>
+                        <button type="button" class="cancel-btn">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script src="services.js"></script>
+</body>
+</html> 

@@ -1,0 +1,91 @@
+{
+  "name": "venzell-app",
+  "version": "1.0.0",
+  "description": "Venzell Admin and User Dashboard",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "cross-env NODE_ENV=development electron .",
+    "build": "electron-builder",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "author": "GEN7VEN",
+  "license": "ISC",
+  "keywords": [
+    "electron",
+    "session-management",
+    "browser"
+  ],
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "axios": "^1.9.0",
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "electron-squirrel-startup": "^1.0.0",
+    "electron-store": "^8.1.0",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "form-data": "^4.0.2",
+    "fs": "^0.0.1-security",
+    "hugeicons-react": "^0.3.0",
+    "iconoir-react": "^7.10.1",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.14.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-icons": "^5.4.0",
+    "session-file-store": "^1.5.0",
+    "sharp": "^0.33.5",
+    "unzipper": "^0.12.3",
+    "vite": "^6.3.4",
+    "ws": "^8.18.0",
+    "update-electron-app": "^2.0.1",
+    "semver": "^7.5.4"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.6.0",
+    "@electron-forge/maker-deb": "^7.6.0",
+    "@electron-forge/maker-rpm": "^7.6.0",
+    "@electron-forge/maker-squirrel": "^7.6.0",
+    "@electron-forge/maker-zip": "^7.6.0",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.6.0",
+    "@electron-forge/plugin-fuses": "^7.6.0",
+    "@electron/fuses": "^1.8.0",
+    "cross-env": "^7.0.3",
+    "electron": "^26.3.0",
+    "electron-builder": "^26.0.12",
+    "nodemon": "^3.1.9"
+  },
+  "build": {
+    "appId": "com.venzell.app",
+    "productName": "Venzell App",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      ".env",
+      "!**/*.md",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*/{.idea,.vscode,.gitignore}",
+      "!**/node_modules/*/{.git,.yarn-integrity,.yarn-metadata.json}",
+      "!**/dist/*",
+      "!**/node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!**/{.git,.svn,.hg,.DS_Store}"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/6.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/6.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/6.png"
+    }
+  }
+}

@@ -1,0 +1,443 @@
+/* Services Page Styles */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #110218;
+    color: white;
+    margin: 0;
+    padding: 0;
+    font-family: poppins, sans-serif;
+}
+
+.services-page {
+    padding: 2rem;
+}
+
+.services-header {
+    margin-bottom: 40px;
+}
+
+.services-header h1 {
+    font-size: 2.5em;
+    margin-bottom: 20px;
+    color: white;
+    text-align: center;
+}
+
+/* Stats Section */
+.services-stats {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-bottom: 40px;
+}
+
+.stat-box {
+    background-color: #1a0329;
+    padding: 20px;
+    border-radius: 10px;
+    min-width: 150px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+    text-align: center;
+}
+
+.stat-box:hover {
+    transform: translateY(-5px);
+}
+
+.stat-box h3 {
+    margin: 0;
+    color: #ff0033;
+    font-size: 1.2em;
+}
+
+.stat-box p {
+    margin: 10px 0 5px;
+    font-size: 2em;
+    font-weight: bold;
+}
+
+.stat-box small {
+    color: #666;
+    font-size: 0.8em;
+}
+
+/* Services Container */
+.services-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+/* Services Grid Layout */
+.services-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    row-gap: 2rem;
+    column-gap: 2rem;
+    margin-bottom: 8rem;
+}
+
+/* Service Card Styles */
+.service-card {
+    width: 100%;
+    height: 100%;
+    background-image: linear-gradient(163deg, #ff00ff 0%, #3700ff 100%);
+    border-radius: 20px;
+    margin: 0 auto;
+    transition: transform 0.2s, box-shadow 0.2s;
+    padding: 2px;
+    cursor: pointer;
+}
+
+.service-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.service-content {
+    background-color: #1d1724;
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s cubic-bezier(0, 0, 0, 1);
+    padding: 15px;
+}
+
+.service-card:hover .service-content {
+    transform: scale(0.96);
+    border-radius: 18px;
+}
+
+/* Service Logo */
+.service-content img.service-logo {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    object-fit: contain;
+    padding: 8px;
+}
+
+/* Service Title */
+.service-content h3 {
+    color: white;
+    font-size: 17px;
+    font-weight: 500;
+    margin: 0;
+    font-family: poppins, sans-serif;
+}
+
+/* Service Stats */
+.service-stats {
+    text-align: center;
+    margin-top: 0.5rem;
+    color: #888;
+    font-size: 0.85rem;
+}
+
+.active-users {
+    display: block;
+    margin-bottom: 0.3rem;
+}
+
+.price-tag {
+    display: block;
+    font-weight: bold;
+    color: #00e676;
+    margin-bottom: 0.3rem;
+    font-size: 0.95rem;
+    background: rgba(0, 230, 118, 0.1);
+    padding: 3px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 230, 118, 0.3);
+}
+
+.status {
+    font-size: 0.8rem;
+    color: #4CAF50;
+}
+
+/* Service Actions */
+.service-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.service-actions button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.manage-btn {
+    background: linear-gradient(82.3deg, rgba(150, 93, 233, 1) 10.8%, rgba(99, 88, 238, 1) 94.3%);
+    color: white;
+}
+
+.settings-btn {
+    background: transparent;
+    border: 1px solid rgba(150, 93, 233, 1);
+    color: rgba(150, 93, 233, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0 !important;
+}
+
+.settings-btn i {
+    font-size: 1rem;
+}
+
+.access-btn {
+    background: transparent;
+    border: 1px solid #2196F3;
+    color: #2196F3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0 !important;
+}
+
+.access-btn i {
+    font-size: 1rem;
+}
+
+.delete-btn {
+    background: transparent;
+    border: 1px solid #ff0033;
+    color: #ff0033;
+}
+
+.manage-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0px 5px 15px rgba(138, 43, 226, 0.3);
+}
+
+.settings-btn:hover {
+    background: rgba(150, 93, 233, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0px 3px 10px rgba(138, 43, 226, 0.2);
+}
+
+.access-btn:hover {
+    background: rgba(33, 150, 243, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0px 3px 10px rgba(33, 150, 243, 0.2);
+}
+
+.delete-btn:hover {
+    background: rgba(255, 0, 51, 0.1);
+    transform: translateY(-2px);
+}
+
+/* Add Service Button */
+.add-service-section {
+    text-align: right;
+    margin-bottom: 20px;
+}
+
+.add-service-btn {
+    background: linear-gradient(82.3deg, rgba(150, 93, 233, 1) 10.8%, rgba(99, 88, 238, 1) 94.3%);
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.add-service-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0px 5px 15px rgba(138, 43, 226, 0.5);
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+}
+
+.modal-content {
+    position: relative;
+    background-color: #1d1724;
+    margin: 5% auto;
+    padding: 30px;
+    width: 90%;
+    max-width: 600px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.close-modal {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    font-size: 24px;
+    cursor: pointer;
+    color: #888;
+    transition: color 0.3s ease;
+}
+
+.close-modal:hover {
+    color: #ff0033;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #fff;
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #2a0439;
+    border-radius: 8px;
+    background-color: #110218;
+    color: white;
+    font-size: 1rem;
+}
+
+.image-upload-container {
+    border: 2px dashed #2a0439;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.image-upload-container:hover {
+    border-color: rgba(150, 93, 233, 1);
+}
+
+.image-preview {
+    margin-top: 10px;
+    max-width: 100px;
+    max-height: 100px;
+    margin: 10px auto;
+}
+
+.image-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 8px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 30px;
+}
+
+.submit-btn,
+.cancel-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.submit-btn {
+    background: linear-gradient(82.3deg, rgba(150, 93, 233, 1) 10.8%, rgba(99, 88, 238, 1) 94.3%);
+    color: white;
+}
+
+.cancel-btn {
+    background: transparent;
+    border: 1px solid #ff0033;
+    color: #ff0033;
+}
+
+.submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0px 5px 15px rgba(138, 43, 226, 0.5);
+}
+
+.cancel-btn:hover {
+    background: rgba(255, 0, 51, 0.1);
+}
+
+/* Add styles for error messages */
+.error-message {
+    padding: 1.5rem;
+    background-color: rgba(255, 76, 76, 0.1);
+    border: 1px solid rgba(255, 76, 76, 0.3);
+    color: #ff4c4c;
+    border-radius: 8px;
+    margin: 1rem 0;
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 500;
+    width: 100%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.error-message::before {
+    content: "\f071"; /* FontAwesome exclamation triangle */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    margin-right: 0.5rem;
+    font-size: 1.2rem;
+}
+
+.no-services-message {
+    padding: 2rem;
+    background-color: rgba(240, 240, 245, 0.1);
+    border: 1px solid rgba(100, 100, 255, 0.2);
+    color: #8888ff;
+    border-radius: 8px;
+    margin: 2rem auto;
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 500;
+    max-width: 600px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.no-services-message::before {
+    content: "\f06a"; /* FontAwesome info circle */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    display: block;
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: #8888ff;
+} 

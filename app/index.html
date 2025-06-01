@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser</title>
+</head>
+<body>
+    <h1>Welcome to the App!</h1>
+<button onclick="window.electron.saveSession()">Save Session</button>
+<button onclick="window.electron.fetchSession()">Fetch Session</button>
+<script>
+    document.getElementById('save-session').addEventListener('click', () => {
+        window.electronAPI.saveSession();
+    });
+</script>
+<script>
+    document.getElementById('fetch-session').addEventListener('click', () => {
+        window.electronAPI.fetchSession();
+    });
+</script>
+</body>
+</html>

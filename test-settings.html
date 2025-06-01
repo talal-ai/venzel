@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reseller Settings Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .settings-section {
+            margin-bottom: 30px;
+        }
+        h1, h2 {
+            color: #bb86fc;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="text"],
+        input[type="password"],
+        input[type="email"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            font-size: 16px;
+        }
+        button {
+            background-color: #bb86fc;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #9966cc;
+        }
+        .profile-picture {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .profile-picture img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .profile-picture-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+            cursor: pointer;
+        }
+        .profile-picture-overlay:hover {
+            opacity: 1;
+        }
+        .profile-picture-overlay i {
+            color: white;
+            font-size: 24px;
+        }
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+            margin-right: 10px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #333;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .toggle-slider {
+            background-color: #bb86fc;
+        }
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+        .notification.show {
+            opacity: 1;
+        }
+        .notification.success {
+            background-color: #4CAF50;
+        }
+        .notification.error {
+            background-color: #F44336;
+        }
+        .notification.info {
+            background-color: #2196F3;
+        }
+        .upload-btn {
+            margin-top: 10px;
+            display: block;
+            width: 150px;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Reseller Settings</h1>
+        
+        <div class="settings-section">
+            <h2>Profile</h2>
+            <div class="profile-picture">
+                <img src="assets/default-profile.png" alt="Profile Picture">
+                <div class="profile-picture-overlay">
+                    <i class="fas fa-camera"></i>
+                </div>
+            </div>
+            <button id="uploadProfilePicBtn" class="upload-btn">
+                <i class="fas fa-upload"></i> Upload Photo
+            </button>
+            <input type="file" id="profilePictureInput" accept="image/*" style="display: none;">
+            <div class="profile-info">
+                <h3 class="display-name">Reseller Name</h3>
+                <p class="email">reseller@example.com</p>
+            </div>
+        </div>
+        
+        <div class="settings-section">
+            <h2>Security</h2>
+            <form id="securityForm">
+                <div class="form-group">
+                    <label for="currentPassword">Current Password</label>
+                    <input type="password" id="currentPassword" required>
+                </div>
+                <div class="form-group">
+                    <label for="newPassword">New Password</label>
+                    <input type="password" id="newPassword" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm New Password</label>
+                    <input type="password" id="confirmPassword" required>
+                </div>
+                <button type="submit">Change Password</button>
+            </form>
+        </div>
+        
+        <div class="settings-section">
+            <h2>Preferences</h2>
+            <div class="toggle-container">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="emailNotifications" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+                <span>Email Notifications</span>
+            </div>
+            <div class="toggle-container">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="serviceUpdates" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+                <span>Service Updates</span>
+            </div>
+            <div class="toggle-container">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="userActivity" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+                <span>User Activity</span>
+            </div>
+            <div class="toggle-container">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="darkMode" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+                <span>Dark Mode</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="reseller.js"></script>
+    <script>
+        // Simulate having a session ID
+        localStorage.setItem('session_id', 'test-session-id');
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize settings page
+            initializeSettingsPage();
+        });
+    </script>
+</body>
+</html> 

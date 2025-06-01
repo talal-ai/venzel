@@ -1,0 +1,30 @@
+{
+  "chatgpt": {
+    "name": "chatgpt",
+    "description": "ChatGPT Premium Service",
+    "price": 20,
+    "active": true,
+    "activeUsers": 3,
+    "logo": "/assets/images/services/chatgpt.png",
+    "features": [
+      "24/7 Support",
+      "Premium Features"
+    ],
+    "email": "chatgpt@example.com",
+    "password": "password123"
+  },
+  "bing": {
+    "name": "bing",
+    "description": "Bing AI Service",
+    "price": 15,
+    "active": true,
+    "activeUsers": 1,
+    "logo": "/assets/images/services/bing.png",
+    "features": [
+      "24/7 Support",
+      "Premium Features"
+    ],
+    "email": "bing@example.com",
+    "password": "password123"
+  }
+}

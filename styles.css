@@ -1,0 +1,90 @@
+.container {
+    text-align: center;
+    padding: 2rem;
+    width: 100%;
+    max-width: 1200px;
+}
+
+h1 {
+    font-size: 3rem;
+    font-weight: 600;
+    margin-bottom: 4rem;
+    letter-spacing: 1px;
+    font-family: poppins, sans-serif;
+    letter-spacing: -1.3px; /* Adjust value as needed */
+
+}
+.status-active {
+    color: green;
+    font-weight: bold;
+}
+
+.status-warning {
+    color: orange;
+    font-weight: bold;
+}
+
+.status-expired {
+    color: red;
+    font-weight: bold;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    row-gap: 2rem;
+    column-gap: 2rem;
+    margin-bottom: 8rem;
+}
+a.card {
+    text-decoration: none; /* Remove underline on links */
+    display: block; /* Make the anchor behave like a block */
+    color: inherit; /* Use the same color as the text inside */
+}
+
+.card {
+    width: 300px;
+    height: 150px;
+    background-image: linear-gradient(163deg, #ff00ff 0%, #3700ff 100%);
+    border-radius: 20px;
+    margin: 0 auto;
+    transition: all 0.25s cubic-bezier(0, 0, 0, 1);
+    padding: 2px; /* This creates space for the gradient border */
+}
+
+.card:hover {
+    box-shadow: 0px 0px 30px 1px rgba(204, 0, 255, 0.3);
+}
+
+.card > div {
+    background-color: #1d1724;
+    border-radius: 18px;
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s cubic-bezier(0, 0, 0, 1);
+    padding: 15px;
+    cursor: pointer;
+}
+
+.card:hover > div {
+    transform: scale(0.96);
+    border-radius: 18px;
+}
+
+.card img {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 1rem;
+    border-radius: 12px;
+}
+
+a.card p {
+    color: white;
+    font-size: 17px;
+    font-weight: 500;
+    font-family: poppins, sans-serif;
+}

@@ -1,0 +1,17 @@
+{
+  "admin-session": {
+    "username": "admin",
+    "role": "admin",
+    "createdAt": "2025-05-20T18:33:43.219Z"
+  },
+  "reseller-session": {
+    "username": "reseller",
+    "role": "reseller",
+    "createdAt": "2025-05-20T18:33:43.219Z"
+  },
+  "user-session": {
+    "username": "user",
+    "role": "user",
+    "createdAt": "2025-05-20T18:33:43.219Z"
+  }
+}

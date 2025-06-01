@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="admin.css">
+    <!-- Add Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Add menu initialization -->
+    <script src="menu-init.js" defer></script>
+    
+    <style>
+    /* Add these styles to your existing CSS */
+    .upload-progress-container {
+        margin-top: 15px;
+        margin-bottom: 15px;
+        width: 100%;
+    }
+
+    .progress-bar-container {
+        width: 100%;
+        height: 20px;
+        background-color: #f0f0f0;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 5px;
+    }
+
+    .progress-bar {
+        width: 0;
+        height: 100%;
+        background-color: #4CAF50;
+        transition: width 0.3s ease;
+    }
+
+    .progress-text {
+        text-align: center;
+        font-size: 14px;
+        color: #666;
+    }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <img src="assets/6 Services logos/VENZELL LOGO.png" alt="VENZELL" class="logo">
+                <h2>Admin Panel</h2>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-item" data-page="dashboard">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#users" class="nav-item" data-page="users">
+                    <i class="fas fa-users"></i>
+                    <span>User Management</span>
+                </a>
+                <a href="#sessions" class="nav-item" data-page="sessions">
+                    <i class="fas fa-clock"></i>
+                    <span>Sessions</span>
+                </a>
+                <a href="#services" class="nav-item" data-page="services">
+                    <i class="fas fa-cogs"></i>
+                    <span>Services</span>
+                </a>
+                <a href="#settings" class="nav-item" data-page="settings">
+                    <i class="fas fa-gear"></i>
+                    <span>Settings</span>
+                </a>
+                <a href="#updates" class="nav-item" data-page="updates">
+                    <i class="fas fa-sync"></i>
+                    <span>Updates</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="admin-info">
+                    <img src="admin-avatar.png" alt="Admin" class="admin-avatar">
+                    <div class="admin-details">
+                        <span id="admin-name">Admin User</span>
+                        <span id="admin-role">Administrator</span>
+                    </div>
+                </div>
+                <button id="logoutButton" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Logout
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Content pages will be loaded here -->
+            <div id="dashboard-page" class="content-page active">
+                <!-- Welcome Header -->
+                <div class="welcome-header">
+                    <div class="welcome-text">
+                        <h1>Welcome back, <span id="adminName">Admin</span></h1>
+                        <p>Here's what's happening with your platform today.</p>
+                    </div>
+                    <div class="date-time">
+                        <span id="currentDate"></span>
+                        <div id="dashboardTimestamp" class="dashboard-timestamp"></div>
+                    </div>
+                </div>
+
+                <!-- Wrap both analytics sections -->
+                <div class="analytics-wrapper">
+                    <!-- Users Analytics Section -->
+                    <div class="analytics-section">
+                        <h1 class="analytics-title">Users Analytics</h1>
+                        <div class="analytics-subtitle">Real-time user statistics and trends</div>
+                        <div class="dashboard-grid">
+                            <!-- Total Users Card -->
+                            <div class="dashboard-card">
+                                <div class="card-icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>Total Users</h3>
+                                    <p id="totalUsersCount">0</p>
+                                    <small>Registered accounts</small>
+                                </div>
+                                <div id="totalUsersTrend" class="trend-indicator">
+                                    <i class="fas fa-minus"></i>
+                                    <span>0%</span>
+                                </div>
+                            </div>
+
+                            <!-- New Users Card -->
+                            <div class="dashboard-card">
+                                <div class="card-icon">
+                                    <i class="fas fa-user-plus"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>New Users</h3>
+                                    <div class="card-value" id="newUsersCount">0</div>
+                                    <div class="card-description">Last 7 days</div>
+                                </div>
+                                <div class="card-chart">
+                                    <div class="trend-indicator">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span id="newUsersTrend">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Active Users Card -->
+                            <div class="dashboard-card">
+                                <div class="card-icon">
+                                    <i class="fas fa-user-clock"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>Active Users</h3>
+                                    <div class="card-value" id="activeUsersCount">0</div>
+                                    <div class="card-description">Currently online</div>
+                                </div>
+                                <div class="card-chart">
+                                    <div class="trend-indicator">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span id="activeUsersTrend">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Total Services Card -->
+                            <div class="dashboard-card">
+                                <div class="card-icon">
+                                    <i class="fas fa-cogs"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>Total Services</h3>
+                                    <div class="card-value" id="totalServicesCount">0</div>
+                                    <div class="card-description">Available services</div>
+                                </div>
+                                <div class="card-chart">
+                                    <div class="trend-indicator">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span id="servicesTotalTrend">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resellers Analytics Section -->
+                    <div class="analytics-section">
+                        <h1 class="analytics-title">Resellers Analytics</h1>
+                        <div class="analytics-subtitle">Real-time reseller performance metrics</div>
+                        <div class="dashboard-grid">
+                            <!-- Total Resellers Card -->
+                            <div class="dashboard-card">
+                                <div class="card-icon">
+                                    <i class="fas fa-store"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>Total Resellers</h3>
+                                    <div class="card-value" id="totalResellers">0</div>
+                                    <div class="card-description">Active reseller accounts</div>
+                                </div>
+                                <div class="card-chart">
+                                    <div class="trend-indicator up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span id="resellersTrend">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- New Resellers Card -->
+                            <div class="dashboard-card">
+                                <div class="card-icon">
+                                    <i class="fas fa-user-tie"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>New Resellers</h3>
+                                    <div class="card-value" id="newResellers">0</div>
+                                    <div class="card-description">Last 7 days</div>
+                                </div>
+                                <div class="card-chart">
+                                    <div class="trend-indicator up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span id="newResellersTrend">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Active Sales Card -->
+                            <div class="dashboard-card">
+                                <div class="card-icon">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>Active Sales</h3>
+                                    <div class="card-value" id="activeSales">0</div>
+                                    <div class="card-description">Current month</div>
+                                </div>
+                                <div class="card-chart">
+                                    <div class="trend-indicator up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span id="salesTrend">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Total Revenue Card -->
+                            <div class="dashboard-card">
+                                <div class="card-icon">
+                                    <i class="fas fa-dollar-sign"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>Total Revenue</h3>
+                                    <div class="card-value" id="totalRevenue">$0</div>
+                                    <div class="card-description">All time earnings</div>
+                                </div>
+                                <div class="card-chart">
+                                    <div class="trend-indicator up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span id="revenueTrend">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tools & Products Analytics Section -->
+                <div class="tools-analytics-wrapper">
+                    <!-- Product & Tools Performance Section -->
+                    <div class="tools-analytics">
+                        <h1 class="analytics-title">Product & Tools Performance</h1>
+                        <div class="analytics-subtitle">Tools usage and performance metrics</div>
+                        <div class="dashboard-grid">
+                            <!-- Total Tools Card -->
+                            <div class="dashboard-card">
+                                <div class="card-icon">
+                                    <i class="fas fa-tools"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>Total Tools</h3>
+                                    <div class="card-value" id="totalTools">0</div>
+                                    <div class="card-description">Active tools & products</div>
+                                </div>
+                                <div class="card-chart">
+                                    <div class="trend-indicator up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span id="toolsTrend">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Top Selling Tools Card -->
+                            <div class="dashboard-card">
+                                <div class="card-icon">
+                                    <i class="fas fa-star"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>Top Selling</h3>
+                                    <div class="card-value" id="topSellingTools">0</div>
+                                    <div class="card-description">Last 30 days</div>
+                                </div>
+                                <div class="card-chart">
+                                    <div class="trend-indicator up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span id="topSellingTrend">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tools Revenue Card -->
+                            <div class="dashboard-card">
+                                <div class="card-icon">
+                                    <i class="fas fa-chart-bar"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>Tools Revenue</h3>
+                                    <div class="card-value" id="toolsRevenue">$0</div>
+                                    <div class="card-description">Monthly earnings</div>
+                                </div>
+                                <div class="card-chart">
+                                    <div class="trend-indicator up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span id="toolsRevenueTrend">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Active Users per Tool Card -->
+                            <div class="dashboard-card">
+                                <div class="card-icon">
+                                    <i class="fas fa-user-check"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>Active Usage</h3>
+                                    <div class="card-value" id="activeToolUsers">0</div>
+                                    <div class="card-description">Users utilizing tools</div>
+                                </div>
+                                <div class="card-chart">
+                                    <div class="trend-indicator up">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span id="toolsUsageTrend">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Space for your new section -->
+                    <div class="tools-analytics">
+                        <!-- You can add your new section content here -->
+                    </div>
+                </div>
+
+                <!-- Tabbed Tables Section -->
+                <div class="tables-section">
+                    <div class="tabs-container">
+                        <div class="tabs">
+                            <button class="tab-button active" data-tab="users">
+                                <i class="fas fa-users"></i>
+                                Active Users
+                            </button>
+                            <button class="tab-button" data-tab="resellers">
+                                <i class="fas fa-store"></i>
+                                Resellers Activity
+                            </button>
+                            <button class="tab-button" data-tab="sessions">
+                                <i class="fas fa-history"></i>
+                                Session Activity
+                            </button>
+                        </div>
+                        
+                        <!-- Users Table Tab -->
+                        <div class="tab-content active" id="users-tab">
+                            <div class="section-header">
+                                <h2>Recent Active Users</h2>
+                                <span class="refresh-button" id="refreshUsersTable">
+                                    <i class="fas fa-sync-alt"></i>
+                                </span>
+                            </div>
+                            <div class="table-container">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>User</th>
+                                            <th>Role</th>
+                                            <th>Last Active</th>
+                                            <th>Status</th>
+                                            <th>Services Used</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recentUsersTableBody">
+                                        <!-- Table rows will be populated dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Resellers Table Tab -->
+                        <div class="tab-content" id="resellers-tab">
+                            <div class="section-header">
+                                <h2>Recent Resellers Activity</h2>
+                                <span class="refresh-button" id="refreshResellersTable">
+                                    <i class="fas fa-sync-alt"></i>
+                                </span>
+                            </div>
+                            <div class="table-container">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Reseller</th>
+                                            <th>Status</th>
+                                            <th>Last Sale</th>
+                                            <th>Monthly Sales</th>
+                                            <th>Revenue</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recentResellersTableBody">
+                                        <!-- Table rows will be populated dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Sessions Table Tab -->
+                        <div class="tab-content" id="sessions-tab">
+                            <div class="section-header">
+                                <h2>Session History</h2>
+                                <span class="refresh-button" id="refreshSessionsTable">
+                                    <i class="fas fa-sync-alt"></i>
+                                </span>
+                            </div>
+                            <div class="recent-sessions">
+                                <div class="table-header">
+                                    <h2>Recent Sessions</h2>
+                                    <button class="refresh-btn" onclick="updateSessionsTable('dashboardSessionsTable')">
+                                        <i class="fas fa-sync-alt"></i> Refresh
+                                    </button>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="admin-table sessions-table">
+                                        <thead>
+                                            <tr>
+                                                <th>User</th>
+                                                <th>Role</th>
+                                                <th>Login Time</th>
+                                                <th>Logout Time</th>
+                                                <th>Duration</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="dashboardSessionsTable">
+                                            <!-- Sessions will be populated here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="users-page" class="content-page">
+                <!-- User Stats Cards -->
+                <div class="user-stats-container">
+                    <div class="stats-card">
+                        <div class="stats-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3>Total Users</h3>
+                            <p id="totalUsersCount">0</p>
+                            <small>Registered accounts</small>
+                        </div>
+                        <div class="stats-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>12%</span>
+                        </div>
+                    </div>
+
+                    <div class="stats-card">
+                        <div class="stats-icon">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                        <div class="stats-info">
+                            <h3>Active Users</h3>
+                            <p id="activeUsersCount">0</p>
+                            <small>Currently online</small>
+                        </div>
+                        <div class="stats-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>8%</span>
+                        </div>
+                    </div>
+
+                    <div class="stats-card">
+                        <div class="stats-icon">
+                            <i class="fas fa-user-plus"></i>
+                        </div>
+                        <div class="stats-info">
+                            <h3>New Users</h3>
+                            <p id="newUsersCount">0</p>
+                            <small>Last 7 days</small>
+                        </div>
+                        <div class="stats-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>24%</span>
+                        </div>
+                    </div>
+
+                    <div class="stats-card">
+                        <div class="stats-icon">
+                            <i class="fas fa-user-shield"></i>
+                        </div>
+                        <div class="stats-info">
+                            <h3>Admin Users</h3>
+                            <p id="adminUsersCount">0</p>
+                            <small>With admin access</small>
+                        </div>
+                        <div class="stats-trend">
+                            <i class="fas fa-minus"></i>
+                            <span>0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tables-section">
+                    <div class="tabs-container">
+                        <div class="tabs">
+                            <button class="tab-button active" data-tab="allusers">
+                                <i class="fas fa-users"></i>
+                                All Users
+                            </button>
+                            <button class="tab-button" data-tab="adduser">
+                                <i class="fas fa-user-plus"></i>
+                                Add User
+                            </button>
+                            <button class="tab-button" data-tab="services">
+                                <i class="fas fa-cogs"></i>
+                                Manage Services
+                            </button>
+                            <button class="tab-button" data-tab="manageservices">
+                                <i class="fas fa-user-cog"></i>
+                                Manage User Services
+                            </button>
+                        </div>
+
+                        <!-- All Users Tab -->
+                        <div class="tab-content active" id="allusers-tab">
+                            <div class="section-header">
+                                <h2>All Users Management</h2>
+                                <span class="refresh-button" id="refreshAllUsersTable">
+                                    <i class="fas fa-sync-alt"></i>
+                                </span>
+                            </div>
+                            <div class="table-container">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Username</th>
+                                            <th>Role</th>
+                                            <th>Join Date</th>
+                                            <th>Last Activity</th>
+                                            <th>Status</th>
+                                            <th>Services</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="userList">
+                                        <!-- Users will be populated here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Add User Tab -->
+                        <div class="tab-content" id="adduser-tab">
+                            <div class="section-header">
+                                <h2>Add New User</h2>
+                            </div>
+                            <div id="addUserModal" class="modal">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h2>Add New User</h2>
+                                        <button class="close-btn" onclick="closeAddUserModal()">&times;</button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form id="addUserForm" onsubmit="event.preventDefault(); addUser();">
+                                            <div class="form-group">
+                                                <label for="fullName">Full Name</label>
+                                                <input type="text" id="fullName" required placeholder="Enter full name">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="newUsername">Username</label>
+                                                <input type="text" id="newUsername" required placeholder="Enter username">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="newPassword">Password</label>
+                                                <div class="password-input">
+                                                    <input type="password" id="newPassword" required placeholder="Enter password">
+                                                    <i class="fas fa-eye toggle-password"></i>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="newRole">Role</label>
+                                                <select id="newRole" required>
+                                                    <option value="">Select role</option>
+                                                    <option value="user">User</option>
+                                                    <option value="admin">Admin</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-actions">
+                                                <button type="submit" class="save-btn">
+                                                    <i class="fas fa-user-plus"></i>
+                                                    Add User
+                                                </button>
+                                                <button type="button" class="cancel-btn" onclick="closeAddUserModal()">
+                                                    <i class="fas fa-times"></i>
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Manage Services Tab -->
+                        <div class="tab-content" id="services-tab">
+                            <div class="section-header">
+                                <h2>Manage Services</h2>
+                                <span class="refresh-button" id="refreshServicesTable">
+                                    <i class="fas fa-sync-alt"></i>
+                                </span>
+                            </div>
+                            <div class="table-container">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Service Name</th>
+                                            <th>Description</th>
+                                            <th>Price</th>
+                                            <th>Active Users</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="servicesList">
+                                        <!-- Services will be populated here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Manage User Services Tab -->
+                        <div class="tab-content" id="manageservices-tab">
+                            <div class="section-header">
+                                <h2>Manage User Services</h2>
+                                <span class="refresh-button" id="refreshUserServicesTable">
+                                    <i class="fas fa-sync-alt"></i>
+                                </span>
+                            </div>
+                            <div class="table-container">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Username</th>
+                                            <th>Role</th>
+                                            <th>Current Services</th>
+                                            <th>Add Service</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="userServicesList">
+                                        <!-- User services will be populated here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Details Popup -->
+                <div id="userDetailsPopup" class="popup">
+                    <div class="popup-content">
+                        <span class="close-popup">&times;</span>
+                        <h3>User Details</h3>
+                        <div id="userDetailsContent"></div>
+                    </div>
+                </div>
+
+                
+                <table>
+                    <tbody id="manageUsersList"></tbody>
+                </table>
+
+                <!-- Popup for granting/removing service access -->
+                <div id="servicePopup" class="popup" style="display: none;">
+                    <div class="popup-content">
+                        <h3 id="popupTitle"></h3>
+                        <p id="popupMessage"></p>
+                        <button id="confirmServiceChange">Confirm</button>
+                        <button id="cancelServiceChange">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sessions-page" class="content-page">
+                <!-- Session Stats Cards -->
+                <div class="user-stats-container">
+                    <div class="stats-card">
+                        <div class="stats-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stats-info">
+                            <h3>Active Sessions</h3>
+                            <p id="activeSessions">0</p>
+                            <small>Currently online</small>
+                        </div>
+                        <div class="stats-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>8%</span>
+                        </div>
+                    </div>
+
+                    <div class="stats-card">
+                        <div class="stats-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stats-info">
+                            <h3>Total Sessions</h3>
+                            <p id="totalSessions">0</p>
+                            <small>Last 24 hours</small>
+                        </div>
+                        <div class="stats-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>15%</span>
+                        </div>
+                    </div>
+
+                    <div class="stats-card">
+                        <div class="stats-icon">
+                            <i class="fas fa-user-clock"></i>
+                        </div>
+                        <div class="stats-info">
+                            <h3>Average Duration</h3>
+                            <p id="avgSessionDuration">0m</p>
+                            <small>Per session</small>
+                        </div>
+                        <div class="stats-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>5%</span>
+                        </div>
+                    </div>
+
+                    <div class="stats-card">
+                        <div class="stats-icon">
+                            <i class="fas fa-ban"></i>
+                        </div>
+                        <div class="stats-info">
+                            <h3>Terminated Sessions</h3>
+                            <p id="terminatedSessions">0</p>
+                            <small>Last 24 hours</small>
+                        </div>
+                        <div class="stats-trend down">
+                            <i class="fas fa-arrow-down"></i>
+                            <span>3%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sessions-table-container">
+                    <div class="table-header">
+                        <h2>Session History</h2>
+                        <button id="refreshSessionsTable" class="refresh-btn">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="admin-table sessions-table">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Role</th>
+                                    <th>Login Time</th>
+                                    <th>Logout Time</th>
+                                    <th>Duration</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sessionsTableBody">
+                                <!-- Session rows will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="services-page" class="content-page">
+                <!-- Services Stats Cards -->
+                <div class="user-stats-container">
+                    <div class="stats-card">
+                        <div class="stats-icon">
+                            <i class="fas fa-cogs"></i>
+                        </div>
+                        <div class="stats-info">
+                            <h3>Total Services</h3>
+                            <p id="totalServices">0</p>
+                            <small>Available services</small>
+                        </div>
+                        <div class="stats-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>10%</span>
+                        </div>
+                    </div>
+
+                    <div class="stats-card">
+                        <div class="stats-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stats-info">
+                            <h3>Active Users</h3>
+                            <p id="serviceUsers">0</p>
+                            <small>Using services</small>
+                        </div>
+                        <div class="stats-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>15%</span>
+                        </div>
+                    </div>
+
+                    <div class="stats-card">
+                        <div class="stats-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stats-info">
+                            <h3>Total Revenue</h3>
+                            <p id="servicesRevenue">$0</p>
+                            <small>From all services</small>
+                        </div>
+                        <div class="stats-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>20%</span>
+                        </div>
+                    </div>
+
+                    <div class="stats-card">
+                        <div class="stats-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stats-info">
+                            <h3>Avg. Usage Time</h3>
+                            <p id="avgServiceUsage">0h</p>
+                            <small>Per user/service</small>
+                        </div>
+                        <div class="stats-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>5%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Services Header with Add Button -->
+                <div class="services-header">
+                    <div class="header-content">
+                        <h2>Services Management</h2>
+                        <div class="service-actions">
+                            <button id="addNewServiceBtn" class="action-button">
+                                <i class="fas fa-plus"></i>
+                                Add New Service
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Services Grid -->
+                <div class="services-container">
+                    <div class="services-grid">
+                        <!-- Service cards will be populated here dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <div id="settings-page" class="content-page">
+                <div class="card">
+                    <div class="settings-container">
+                        <div class="settings-header">
+                            <h2>Account Settings</h2>
+                        </div>
+                        
+                        <form class="settings-form">
+                            <div class="form-group">
+                                <label for="email">Email Address</label>
+                                <input type="email" id="email" placeholder="Enter your email">
+                            </div>
+                            
+                            <div class="password-fields">
+                                <div class="form-group">
+                                    <label for="currentPassword">Current Password</label>
+                                    <input type="password" id="currentPassword">
+                                </div>
+                                <div class="form-group">
+                                    <label for="newPassword">New Password</label>
+                                    <input type="password" id="newPassword">
+                                    <div class="password-strength">
+                                        <div class="password-strength-bar"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="settings-actions">
+                                <button type="button" class="reset-settings">Reset</button>
+                                <button type="submit" class="save-settings">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                    
+
+                        <!-- Reseller Settings -->
+                        <div class="settings-section">
+                            <h2>Reseller Settings</h2>
+                            <div class="reseller-list">
+                                <!-- Reseller cards will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="updates-page" class="content-page">
+                <div class="page-header">
+                    <h1><i class="fas fa-sync"></i> Application Updates</h1>
+                    <p>Manage application updates and notify users about new versions</p>
+                </div>
+        
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-info-circle"></i> Current Version Information</h2>
+                    </div>
+                    <div class="card-body">
+                        <div id="currentVersionInfo">
+                            <div class="loading-spinner"></div>
+                            <p>Loading version information...</p>
+                        </div>
+                    </div>
+                </div>
+        
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-upload"></i> Upload New Version</h2>
+                    </div>
+                    <div class="card-body">
+                        <form id="updateForm">
+                            <div class="form-group">
+                                <label for="updateVersion">Version Number</label>
+                                <input type="text" id="updateVersion" name="version" placeholder="1.0.0" required>
+                                <small>Must follow semantic versioning (e.g., 1.0.0)</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="updatePlatform">Platform</label>
+                                <select id="updatePlatform" name="platform" required>
+                                    <option value="win32">Windows</option>
+                                    <option value="darwin">macOS</option>
+                                    <option value="linux">Linux</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="updateArchitecture">Architecture</label>
+                                <select id="updateArchitecture" name="architecture" required>
+                                    <option value="x64">x64 (64-bit)</option>
+                                    <option value="ia32">ia32 (32-bit)</option>
+                                    <option value="arm64">arm64</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="updateNotes">Release Notes</label>
+                                <textarea id="updateNotes" name="releaseNotes" rows="4" placeholder="What's new in this version?"></textarea>
+                                <small>These notes will automatically appear in the update notification for users</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="updateFile">Update File</label>
+                                <input type="file" id="updateFile" name="updateFile" required>
+                                <small>For Windows: .exe or .nupkg, For macOS: .zip, For Linux: .AppImage</small>
+                            </div>
+                            
+                            <div class="form-info alert-info">
+                                <i class="fas fa-info-circle"></i>
+                                <span>Uploading this update will automatically update the latest.json file, making the update immediately available to all users.</span>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary"><i class="fas fa-cloud-upload-alt"></i> Upload Update</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Add version file management card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-tools"></i> Version File Management</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-info alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Use these tools only if you're experiencing issues with the update system.</span>
+                        </div>
+                        
+                        <form id="resetVersionForm">
+                            <div class="form-group">
+                                <label for="resetVersion">Version Number</label>
+                                <input type="text" id="resetVersion" name="version" placeholder="1.0.0" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="resetDownloadUrl">Download URL (Optional)</label>
+                                <input type="text" id="resetDownloadUrl" name="downloadUrl" placeholder="http://venzell.skplay.net/updates/download/1.0.0">
+                                <small>Leave blank to use default URL format</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="resetNotes">Release Notes (Optional)</label>
+                                <textarea id="resetNotes" name="notes" rows="2" placeholder="Version notes"></textarea>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="button" id="resetVersionButton" class="btn btn-warning">
+                                    <i class="fas fa-sync-alt"></i> Reset Version Files
+                                </button>
+                                <button type="button" id="debugVersionButton" class="btn btn-secondary">
+                                    <i class="fas fa-bug"></i> Debug Version Files
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+        
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-history"></i> Update History</h2>
+                        <button onclick="loadUpdateHistory()" class="refresh-btn">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table id="updateHistoryTable" class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Version</th>
+                                        <th>Platform</th>
+                                        <th>Architecture</th>
+                                        <th>Release Date</th>
+                                        <th>Release Notes</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Update history will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="serviceAssignPopup" class="popup-overlay">
+        <div class="popup-content glass-form">
+            <div class="popup-header">
+                <h3>Confirm Service Access</h3>
+                <button class="close-popup">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="popup-body">
+                <div class="service-details">
+                    <p class="user-info">User: <span id="popupUsername"></span></p>
+                    <p class="service-info">Service: <span id="popupService"></span></p>
+                </div>
+                <div class="confirmation-message">
+                    Are you sure you want to grant access to this service?
+                </div>
+            </div>
+            <div class="popup-actions">
+                <button class="table-action-btn" id="confirmAssign">
+                    <i class="fas fa-check"></i> Grant Access
+                </button>
+                <button class="table-action-btn delete" id="cancelAssign">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="userServicesPopup" class="popup-overlay">
+        <div class="popup-content glass-form">
+            <div class="popup-header">
+                <h3>User Services Details</h3>
+                <button class="close-popup" title="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="popup-body">
+                <div class="user-services-info">
+                    <div class="user-info-header">
+                        <span class="username"></span>
+                        <span class="role-badge"></span>
+                    </div>
+                    <div class="services-list">
+                        <!-- Services will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="ohServiceModal" class="modal">
+        <div class="modal-content glass-form">
+            <div class="modal-header">
+                <h2>Add Regular Service</h2>
+                <button class="close-oh-modal" title="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="quickServiceForm" class="glass-form">
+                    <div class="form-group">
+                        <label for="quickServiceName">Service Name*</label>
+                        <input type="text" id="quickServiceName" required placeholder="Enter service name">
+                    </div>
+                    <div class="form-group">
+                        <label for="quickServiceUrl">Service URL*</label>
+                        <input type="text" id="quickServiceUrl" placeholder="e.g., example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="quickServiceLogo">Service Logo*</label>
+                        <div class="file-upload-wrapper">
+                            <input type="file" id="quickServiceLogo" accept="image/*" required>
+                            <label for="quickServiceLogo" class="file-upload-label">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <span>Choose a file</span>
+                            </label>
+                        </div>
+                        <div id="quickImagePreview"></div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="submit-btn glass-btn">
+                            <i class="fas fa-plus"></i> Add Service
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div id="manageServiceModal" class="modal">
+        <div class="modal-content glass-form">
+            <div class="modal-header">
+                <h2>Manage Service</h2>
+                <button class="close-manage-modal" title="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="manageServiceForm" class="glass-form">
+                    <div class="form-group">
+                        <label for="manageName">Service Name</label>
+                        <input type="text" id="manageName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="manageStatus">Status</label>
+                        <select id="manageStatus">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="manageUrl">Service URL</label>
+                        <input type="text" id="manageUrl" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="manageDescription">Description</label>
+                        <textarea id="manageDescription"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="managePrice">Price</label>
+                        <input type="number" id="managePrice" step="0.01" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Service Logo</label>
+                        <div class="current-logo">
+                            <img id="currentLogo" src="" alt="Current Logo">
+                            <div class="file-upload-wrapper">
+                                <input type="file" id="manageServiceLogo" accept="image/*">
+                                <label for="manageServiceLogo" class="file-upload-label">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <span>Change Logo</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="manageImagePreview"></div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="submit-btn glass-btn">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script src="admin.js"></script>
+    <script src="menu-init.js" defer></script>
+    <!-- Add this before the closing body tag -->
+    <script src="services.js"></script>
+</body>
+</html>
