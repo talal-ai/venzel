@@ -4255,10 +4255,9 @@ app.get('/reseller/profile', (req, res) => {
         // Construct full URL for profile picture if it exists
         let profilePicture = null;
         if (resellerData.profilePicture) {
-            // Get server's base URL (protocol + host)
-            const protocol = req.protocol;
-            const host = req.get('host');
-            profilePicture = `${protocol}://${host}/${resellerData.profilePicture}`;
+            // Use the live server URL directly
+            const apiBaseUrl = 'http://venzell.skplay.net';
+            profilePicture = `${apiBaseUrl}/${resellerData.profilePicture}`;
         }
         
         // Return reseller profile data
