@@ -10,12 +10,12 @@
       "env": {
         "NODE_ENV": "production",
         "PORT": 8095,
-        "WS_PORT": 8096
+        "WS_PORT": 8097
       },
       "env_development": {
         "NODE_ENV": "development",
         "PORT": 8095,
-        "WS_PORT": 8096
+        "WS_PORT": 8097
       }
     }
   ]
