@@ -13,6 +13,55 @@ async function getApiBaseUrl() {
     }
 }
 
+// Add styles for empty state messages
+document.addEventListener('DOMContentLoaded', () => {
+    const style = document.createElement('style');
+    style.textContent = `
+        .no-data {
+            text-align: center;
+            padding: 40px 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .no-data i {
+            font-size: 48px;
+            color: #d0d0d0;
+            margin-bottom: 15px;
+            display: block;
+        }
+        
+        .no-data p {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .no-data-subtext {
+            font-size: 14px !important;
+            color: #888 !important;
+            margin-top: 5px;
+        }
+        
+        .empty-table-message {
+            padding: 30px !important;
+            text-align: center;
+            font-size: 16px;
+            color: #666;
+            background-color: #f9f9f9;
+        }
+        
+        .empty-table-message i {
+            font-size: 24px;
+            color: #d0d0d0;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+    `;
+    document.head.appendChild(style);
+});
+
 // Mobile menu functionality
 function setupMobileMenu() {
     const mobileMenuToggle = document.getElementById('mobileMenuToggle');
@@ -1250,7 +1299,7 @@ async function loadServices() {
         // Check if services is empty or undefined
         if (!services || Object.keys(services).length === 0) {
             console.warn('No services returned from API');
-            showNotification('No services available', 'info');
+            showNotification('No services assigned to your account', 'info');
         }
         
         // Populate the services table
@@ -1263,19 +1312,19 @@ async function loadServices() {
                 const emptyRow = document.createElement('tr');
                 emptyRow.innerHTML = `
                     <td colspan="6" class="empty-table-message">
-                        <i class="fas fa-info-circle"></i> No services available
+                        <i class="fas fa-info-circle"></i> No services assigned to your account. Please contact your administrator to request access.
                     </td>
                 `;
                 tableBody.appendChild(emptyRow);
             } else {
                 // Display services in the table
-            Object.entries(services).forEach(([serviceName, service]) => {
-                const tr = document.createElement('tr');
+                Object.entries(services).forEach(([serviceName, service]) => {
+                    const tr = document.createElement('tr');
                     const isActive = service.isActive || service.status === 'active';
                     const hasImage = service.image && service.image.trim() !== '';
                     const imageUrl = hasImage ? `${apiBaseUrl}/${service.image}` : '';
                 
-                tr.innerHTML = `
+                    tr.innerHTML = `
                         <td>
                             <div class="service-table-info">
                                 ${hasImage ? 
@@ -1289,37 +1338,37 @@ async function loadServices() {
                                 <span>${serviceName}</span>
                             </div>
                         </td>
-                    <td>${service.description || 'No description'}</td>
-                    <td>$${service.price || '0'}</td>
-                    <td>${service.activeUsers || '0'}</td>
-                    <td>
+                        <td>${service.description || 'No description'}</td>
+                        <td>$${service.price || '0'}</td>
+                        <td>${service.activeUsers || '0'}</td>
+                        <td>
                             <span class="status-badge ${isActive ? 'active' : 'inactive'}">
                                 ${isActive ? 'Active' : 'Inactive'}
-                        </span>
-                    </td>
-                    <td>
-                        <div class="action-buttons">
-                            <button class="table-action-btn" onclick="viewServiceDetails('${serviceName}')">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-                    </td>
-                `;
-                tableBody.appendChild(tr);
-            });
+                            </span>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="table-action-btn" onclick="viewServiceDetails('${serviceName}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
             }
         } else {
             console.warn('Services table element not found');
         }
 
-            // Initialize refresh button functionality
-            const refreshButton = document.getElementById('refreshServicesTable');
-            if (refreshButton) {
+        // Initialize refresh button functionality
+        const refreshButton = document.getElementById('refreshServicesTable');
+        if (refreshButton) {
             refreshButton.onclick = () => {
-                    refreshButton.classList.add('rotating');
-                    loadServices().then(() => {
-                        setTimeout(() => refreshButton.classList.remove('rotating'), 1000);
-                    });
+                refreshButton.classList.add('rotating');
+                loadServices().then(() => {
+                    setTimeout(() => refreshButton.classList.remove('rotating'), 1000);
+                });
             };
         }
         
@@ -1328,7 +1377,7 @@ async function loadServices() {
         
         return services;
     } catch (err) {
-            console.error('Error loading services:', err);
+        console.error('Error loading services:', err);
         
         // Show a more detailed error message
         const errorMsg = err.message || 'Unknown error';
@@ -1361,6 +1410,31 @@ function loadUserServices() {
             
             tableBody.innerHTML = '';
 
+            if (!services || Object.keys(services).length === 0) {
+                // No services assigned to this reseller
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = `
+                    <td colspan="5" class="empty-table-message">
+                        <i class="fas fa-info-circle"></i> You don't have any services assigned to your account. 
+                        Please contact your administrator to request access to services before managing user services.
+                    </td>
+                `;
+                tableBody.appendChild(emptyRow);
+                return;
+            }
+
+            if (!users || Object.keys(users).length === 0) {
+                // No users managed by this reseller
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = `
+                    <td colspan="5" class="empty-table-message">
+                        <i class="fas fa-info-circle"></i> No users found. Add users first to manage their services.
+                    </td>
+                `;
+                tableBody.appendChild(emptyRow);
+                return;
+            }
+
             Object.entries(users).forEach(([username, user]) => {
                 if (user.role !== 'admin' && user.role !== 'reseller') {  // Only show regular users
                     const tr = document.createElement('tr');
@@ -1383,11 +1457,11 @@ function loadUserServices() {
                         </td>
                         <td>
                             <div class="service-assign-wrapper">
-                            <select class="service-dropdown" id="service-${username}">
-                                    <option value="">Add service...</option>
+                            <select class="service-dropdown" id="service-${username}"${serviceOptions ? '' : ' disabled'}>
+                                    <option value="">${serviceOptions ? 'Add service...' : 'No services available'}</option>
                                 ${serviceOptions}
                             </select>
-                            <button class="add-service-btn" onclick="addServiceToUser('${username}')">
+                            <button class="add-service-btn" onclick="addServiceToUser('${username}')"${serviceOptions ? '' : ' disabled'}>
                                 <i class="fas fa-plus"></i>
                             </button>
                             </div>
@@ -1416,6 +1490,18 @@ function loadUserServices() {
         .catch(err => {
             console.error('Error loading user services:', err);
             showNotification('Failed to load user services', 'error');
+
+            // Show error in table
+            const tableBody = document.getElementById('userServicesList');
+            if (tableBody) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="error-state">
+                            <i class="fas fa-exclamation-circle"></i> Error loading services. Please try again.
+                        </td>
+                    </tr>
+                `;
+            }
         });
 }
 
@@ -2307,7 +2393,8 @@ async function loadServicesGrid() {
             servicesGrid.innerHTML = `
                 <div class="no-data">
                     <i class="fas fa-info-circle"></i>
-                    <p>No services available.</p>
+                    <p>No services assigned to your account.</p>
+                    <p class="no-data-subtext">Please contact your administrator to request access to services.</p>
                 </div>
             `;
             return;

@@ -598,62 +598,168 @@ function createNotificationContainer() {
 
 // Add a function to check for updates manually
 async function checkForUpdates() {
-    console.log('Checking for updates...');
-    const updateMessage = document.getElementById('updateMessage');
-    const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
-    
-    // Disable update button while checking
-    if (checkUpdatesBtn) {
-        checkUpdatesBtn.disabled = true;
-        checkUpdatesBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
-    }
-    
-    if (updateMessage) {
-        updateMessage.textContent = 'Checking for updates...';
-    }
-    
-    // Clear any existing progress containers
-    removeProgressContainer();
-    
-    // Clear any previous install link behavior
-    const installLink = document.getElementById('installUpdateLink');
-    if (installLink) {
-        // Reset to default state
-        const newInstallLink = installLink.cloneNode(true);
-        installLink.parentNode.replaceChild(newInstallLink, installLink);
-        newInstallLink.textContent = 'Install Update';
-        newInstallLink.classList.remove('ready-to-install');
-    }
-    
-    // Get API base URL
-    const apiBaseUrl = getApiBaseUrl();
-    const updateUrl = `${apiBaseUrl}/updates/latest.json`;
-    
-    // Add cache-busting parameter
-    const cacheBuster = `?_=${Date.now()}`;
-    
-    // Perform the update check
-    fetch(`${updateUrl}${cacheBuster}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
-            }
-            return response.json();
-        })
-        .then(data => processUpdateData(data))
-        .catch(error => {
-            console.error('Update check failed:', error);
-            if (updateMessage) {
-                updateMessage.textContent = `Failed to check for updates: ${error.message}`;
-            }
-            showNotification(`Failed to check for updates: ${error.message}`, 'error');
+    try {
+        // Get button and disable it during check
+        const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
+        if (checkUpdatesBtn) {
+            checkUpdatesBtn.disabled = true;
+            const originalText = checkUpdatesBtn.innerHTML;
+            checkUpdatesBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
             
-            // Re-enable update button
-            if (checkUpdatesBtn) {
-                checkUpdatesBtn.disabled = false;
-                checkUpdatesBtn.innerHTML = '<i class="fas fa-sync"></i> Check for Updates';
+            // Re-enable after checking (handled at end of function)
+            setTimeout(() => {
+                if (checkUpdatesBtn.disabled) {
+                    checkUpdatesBtn.disabled = false;
+                    checkUpdatesBtn.innerHTML = originalText;
+                }
+            }, 30000); // 30-second timeout as failsafe
+        }
+        
+        const apiBaseUrl = getApiBaseUrl();
+        console.log(`Using API base URL: ${apiBaseUrl}`);
+        showNotification('Checking for updates...', 'info');
+
+        // Add strong cache busting
+        const cacheBuster = `t=${new Date().getTime()}-${Math.random().toString(36).substring(2, 15)}`;
+        const updateUrl = `${apiBaseUrl}/updates/latest.json?${cacheBuster}`;
+        console.log(`Fetching update data from: ${updateUrl}`);
+
+        // Fetch the latest version information with no-cache headers
+        const response = await fetch(updateUrl, {
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
             }
         });
+        
+        if (!response.ok) {
+            throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+        }
+        
+        const updateData = await response.json();
+        console.log('Update data received:', updateData);
+        
+        if (!updateData.version) {
+            throw new Error('Invalid update data: Missing version information');
+        }
+        
+        const currentVersion = window.electron?.process?.env?.APP_VERSION || '1.0.0';
+        
+        console.log(`Current version: ${currentVersion}`);
+        console.log(`Latest version: ${updateData.version}`);
+        
+        // Update the UI with version info
+        const updateMessage = document.getElementById('updateMessage');
+        if (updateMessage) {
+            updateMessage.textContent = `Latest version: ${updateData.version}`;
+        }
+        
+        // Helper function to compare version strings
+        function isNewer(current, latest) {
+            console.log(`Comparing versions - Current: ${current}, Latest: ${latest}`);
+            
+            // Handle numeric versions (like '4' vs '1.0.0')
+            if (!isNaN(latest) && !isNaN(current)) {
+                return Number(latest) > Number(current);
+            }
+            
+            // Handle simple version formats like "4" vs "1.0.0"
+            if (!latest.includes('.') && current.includes('.')) {
+                return Number(latest) > Number(current.split('.')[0]);
+            }
+            
+            if (latest.includes('.') && !current.includes('.')) {
+                return Number(latest.split('.')[0]) > Number(current);
+            }
+            
+            // Standard semantic version comparison
+            const currentParts = current.split('.').map(Number);
+            const latestParts = latest.split('.').map(Number);
+            
+            // Ensure arrays have equal length by padding with zeros
+            while (currentParts.length < 3) currentParts.push(0);
+            while (latestParts.length < 3) latestParts.push(0);
+            
+            for (let i = 0; i < 3; i++) {
+                if (latestParts[i] > currentParts[i]) {
+                    console.log(`Latest version ${latest} is newer than current version ${current}`);
+                    return true;
+                }
+                if (latestParts[i] < currentParts[i]) {
+                    console.log(`Latest version ${latest} is older than current version ${current}`);
+                    return false;
+                }
+            }
+            console.log(`Versions are equal: ${latest} = ${current}`);
+            return false; // Versions are equal
+        }
+        
+        // Check if we found a new version
+        if (updateData && updateData.version && isNewer(currentVersion, updateData.version)) {
+            console.log(`✅ Update available! Current: ${currentVersion}, Available: ${updateData.version}`);
+            const fallbackToBrowserDownload = `Update v${updateData.version} available! Downloading...`;            
+            // Get download URL
+            let downloadUrl = updateData.downloadUrl;
+            
+            // If platforms data exists and matches our platform, use that URL
+            if (updateData.platforms && updateData.platforms[`win32-x64`]) {
+                downloadUrl = updateData.platforms[`win32-x64`].downloadUrl || downloadUrl;
+            }
+            
+            console.log(`Download URL: ${downloadUrl}`);
+            
+            // Make sure download URL is valid
+            if (!downloadUrl) {
+                showNotification('Error: No download URL provided in update data', 'error');
+                return;
+            }
+            
+            // Update the UI message
+            if (updateMessage) {
+                updateMessage.innerHTML = `<span class="update-available">Update v${updateData.version} available!</span>`;
+            }
+            
+            // Start the download using our new method
+            try {
+                console.log(`Starting download from ${downloadUrl} for version ${updateData.version}`);
+                
+                // Wrap in another try-catch to catch any potential errors
+                try {
+                    downloadWithProgress(downloadUrl, updateData.version);
+                } catch (innerError) {
+                    // Silently handle the error
+                    console.log('Ignoring error in downloadWithProgress:', innerError);
+                    // Continue with fallback or other operations
+                }
+            } catch (downloadError) {
+                console.error('Download initiation error:', downloadError);
+                showNotification(`Failed to start download: ${downloadError.message}`, 'error');
+            }
+        } else {
+            showNotification('You have the latest version!', 'success');
+            if (updateMessage) {
+                updateMessage.textContent = 'Your application is up to date';
+            }
+        }
+        
+        // Re-enable update button if it exists
+        if (checkUpdatesBtn) {
+            checkUpdatesBtn.disabled = false;
+            checkUpdatesBtn.innerHTML = '<i class="fas fa-sync"></i> Check for Updates';
+        }
+        
+    } catch (error) {
+        console.error('Error in checkForUpdates:', error);
+        showNotification('Update check failed: ' + error.message, 'error');
+        
+        // Re-enable update button if it exists
+        const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
+        if (checkUpdatesBtn) {
+            checkUpdatesBtn.disabled = false;
+            checkUpdatesBtn.innerHTML = '<i class="fas fa-sync"></i> Check for Updates';
+        }
+    }
 }
 
 function formatTimeRemaining(timeInMs) {
@@ -1290,71 +1396,135 @@ function updateDownloadProgress(progressData) {
 
 // Function to download with progress tracking for web environment
 function downloadWithProgress(url, version) {
-    console.log(`Starting download with progress tracking for ${url}`);
-    
-    // Create or update progress container
-    const progressContainer = createProgressContainer(version);
-    if (!progressContainer) {
-        console.error('Failed to create progress container');
-        fallbackToBrowserDownload(url, version);
-        return;
-    }
-    
-    // Update status text
-    const statusText = progressContainer.querySelector('.status-text');
-    if (statusText) {
-        statusText.textContent = 'Preparing download...';
-    }
-    
-    // Reset any existing install link behavior during download
-    const installLink = document.getElementById('installUpdateLink');
-    if (installLink) {
-        // Remove any existing event listeners by cloning and replacing the element
-        const newInstallLink = installLink.cloneNode(true);
-        installLink.parentNode.replaceChild(newInstallLink, installLink);
-        
-        // Set default behavior during download
-        newInstallLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            showNotification('Download in progress. Please wait for it to complete.', 'info');
-        });
-    }
-
-    // Check if we're in Electron environment
-    if (window.ipcRenderer) {
-        console.log('Using Electron IPC for download');
-        
-        try {
-            // Setup IPC listeners for progress updates
-            window.ipcRenderer.on('download-progress', (event, progressData) => {
-                updateDownloadProgress(progressData);
-            });
-            
-            window.ipcRenderer.on('download-error', (event, error) => {
-                console.error('Download error via IPC:', error);
-                removeProgressContainer();
-                showNotification(`Download failed: ${error.message || 'Unknown error'}`, 'error');
+    try {
+        // Remove any existing progress container first to prevent duplication
+        removeProgressContainer();
                 
-                // Reset install link on error
-                if (installLink) {
-                    installLink.textContent = 'Retry Download';
+        // Validate URL before proceeding
+        if (!url) {
+            throw new Error('Download URL is empty or undefined');
+        }
+        
+        // Ensure downloadUrl is absolute
+        if (!url.startsWith('http')) {
+            // If the URL is relative, make it absolute
+            const baseUrl = getApiBaseUrl();
+            url = `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+            console.log('Converted to absolute URL:', url);
+        }
+        
+        // Create the progress container
+        createProgressContainer(version);
+        
+        // Check if we're in Electron environment - check both possible API locations
+        const electronApi = window.electron || window.electronAPI;
+        
+        if (electronApi) {
+            console.log('Using Electron IPC for downloading update');
+            
+            // Create a unique filename for the update
+            const fileName = `venzell-update-${version}.exe`;
+            
+            // Show initial progress
+            updateDownloadProgress({
+                percent: 0,
+                downloadedBytes: 0,
+                totalBytes: 100,
+                bytesPerSecond: 0,
+                version: version
+            });
+            
+            // Check which API is available for download
+            const downloadMethod = 
+                (electronApi.ipcRenderer && electronApi.ipcRenderer.send) ? 
+                    electronApi.ipcRenderer.send.bind(electronApi.ipcRenderer) : 
+                    electronApi.downloadUpdate;
+            
+            // Request download through main process using whichever API is available
+            if (downloadMethod) {
+                if (downloadMethod === electronApi.downloadUpdate) {
+                    // Use the API function directly
+                    downloadMethod(url, version, {
+                        fileName: fileName,
+                        saveToAppDir: true
+                    });
+                } else {
+                    // Use ipcRenderer.send
+                    downloadMethod('download-update', {
+                        url: url,
+                        version: version,
+                        fileName: fileName,
+                        saveToAppDir: true
+                    });
                 }
-            });
+            }
             
-            window.ipcRenderer.on('download-complete', (event, data) => {
-                showUpdateComplete(version, data.filePath);
-            });
+            // Set up event handlers using available API
+            const ipcRenderer = electronApi.ipcRenderer;
             
-            // Start download via IPC
-            console.log('Sending download-update IPC message with URL:', url);
-            window.ipcRenderer.send('download-update', { url, version });
-            
-        } catch (ipcError) {
-            console.error('IPC download error:', ipcError);
+            if (ipcRenderer && ipcRenderer.on) {
+                // Remove any existing listeners first to avoid duplicates
+                try {
+                    // Wrap in try-catch to hide errors from removeAllListeners
+                    ipcRenderer.removeAllListeners('download-progress');
+                    ipcRenderer.removeAllListeners('download-complete');
+                    ipcRenderer.removeAllListeners('download-error');
+                    console.log('Successfully removed existing listeners');
+                } catch (listenerError) {
+                    // Just ignore any errors from removeAllListeners
+                    console.log('Ignoring error in removeAllListeners');
+                }
+                
+                // Set up progress listener
+                ipcRenderer.on('download-progress', (event, progressData) => {
+                    console.log('Download progress update:', progressData);
+                    // Ensure we have the correct data structure
+                    if (typeof progressData === 'object') {
+                        updateDownloadProgress(progressData);
+                    } else {
+                        console.warn('Received invalid progress data:', progressData);
+                    }
+                });
+                
+                // Set up completion listener
+                ipcRenderer.once('download-complete', (event, data) => {
+                    console.log('Download complete data:', data);
+                    // Ensure we have the expected data structure
+                    if (data && typeof data === 'object' && data.filePath) {
+                        showUpdateComplete(version, data.filePath);
+                        // Display notification                         // Remove progress container after successful download
+                        removeProgressContainer();
+                    } else {
+                        console.warn('Received invalid completion data:', data);
+                        showNotification(`Update download completed, but with unexpected data format.`, 'warning');
+                        // Remove progress container even if data format is unexpected
+                        removeProgressContainer();
+                    }
+                });
+                
+                // Set up error listener
+                ipcRenderer.once('download-error', (event, error) => {
+                    // Remove progress container on error
+                    removeProgressContainer();
+                    
+                    // Fallback to browser download as last resort
+                    fallbackToBrowserDownload(url, version);
+                });
+            } else {
+                console.warn('No ipcRenderer found, cannot listen for download events');
+                // Fallback to browser download since we can't listen for events
+                fallbackToBrowserDownload(url, version);
+            }
+        } else {
+            // Fallback for non-Electron environment
+            console.log('Not in Electron environment, using browser download');
             fallbackToBrowserDownload(url, version);
         }
-    } else {
-        console.log('Electron IPC not available, using browser download');
+    } catch (error) {
+        console.error('Error in downloadWithProgress:', error);
+        showNotification('Download failed: ' + error.message, 'error');
+        // Clean up on error
+        removeProgressContainer();
         fallbackToBrowserDownload(url, version);
     }
 }
@@ -1417,122 +1587,77 @@ function createProgressContainer(version) {
 
 // Fallback function to download through browser
 function fallbackToBrowserDownload(url, version) {
-    console.log('Falling back to browser download for:', url);
     
-    // Create or verify progress container exists
-    const progressContainer = document.getElementById('progressContainer') || createProgressContainer(version);
-    if (!progressContainer) {
-        console.error('Failed to create progress container for fallback download');
-        window.open(url, '_blank');
-        return;
-    }
+    // Make sure we have a clean progress container
+    removeProgressContainer();
+    createProgressContainer(version);
     
-    // Update status
-    const statusText = progressContainer.querySelector('.status-text');
-    if (statusText) {
-        statusText.textContent = 'Starting download...';
-    }
-    
-    // Reset any existing install link behavior during download
-    const installLink = document.getElementById('installUpdateLink');
-    if (installLink) {
-        // Remove any existing event listeners by cloning and replacing the element
-        const newInstallLink = installLink.cloneNode(true);
-        installLink.parentNode.replaceChild(newInstallLink, installLink);
-        
-        // Set default behavior during download
-        newInstallLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            showNotification('Download in progress. Please wait for it to complete.', 'info');
-        });
-    }
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.responseType = 'blob';
 
-    // Perform browser-based download with progress tracking
-    fetch(url)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+    let startTime = Date.now();
+    let lastLoadedBytes = 0;
+    let downloadSpeed = 0;
+
+    xhr.onprogress = function(event) {
+        if (event.lengthComputable) {
+            const progressData = {
+                transferred: event.loaded,
+                total: event.total,
+                percent: Math.round((event.loaded / event.total) * 100)
+            };
+            
+            // Calculate download speed
+            const currentTime = Date.now();
+            const timeElapsed = (currentTime - startTime) / 1000; // seconds
+            if (timeElapsed > 0) {
+                const loadedSinceLastCheck = event.loaded - lastLoadedBytes;
+                downloadSpeed = loadedSinceLastCheck / timeElapsed;
+                lastLoadedBytes = event.loaded;
+                startTime = currentTime;
             }
             
-            // Get total size if available
-            const totalBytes = response.headers.get('content-length');
-            let receivedBytes = 0;
-            let totalSize = totalBytes ? parseInt(totalBytes, 10) : 0;
-            
-            // Create reader from response body stream
-            const reader = response.body.getReader();
-            const chunks = [];
-            
-            // Update status
-            if (statusText) {
-                statusText.textContent = 'Downloading...';
-            }
-            
-            // Process the stream
-            function processStream() {
-                return reader.read().then(({ done, value }) => {
-                    if (done) {
-                        return chunks;
-                    }
-                    
-                    chunks.push(value);
-                    receivedBytes += value.length;
-                    
-                    // Calculate progress
-                    const progress = totalSize ? (receivedBytes / totalSize) * 100 : 0;
-                    
-                    // Update progress UI
-                    updateDownloadProgress({
-                        percent: progress,
-                        transferred: receivedBytes,
-                        total: totalSize,
-                        bytesPerSecond: 0
-                    });
-                    
-                    return processStream();
-                });
-            }
-            
-            return processStream().then(chunks => {
-                // Combine chunks into a single Blob
-                const blob = new Blob(chunks);
-                
-                // Save the file
-                const fileName = `venzell-update-${version}.exe`;
-                
-                // Try to save using the saveAs API if available
-                if (window.saveAs) {
-                    window.saveAs(blob, fileName);
-                    showUpdateComplete(version, null);
-                } else {
-                    // Otherwise, create a download link
-                    saveBlobLocally(blob, fileName);
-                    showUpdateComplete(version, null);
-                }
+            // Update progress with calculated speed
+            updateDownloadProgress({
+                percent: progressData.percent,
+                downloadedBytes: progressData.transferred,
+                totalBytes: progressData.total,
+                bytesPerSecond: downloadSpeed,
+                version: version
             });
-        })
-        .catch(error => {
-            console.error('Fetch download error:', error);
+        }
+    };
+
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            const blob = xhr.response;
+            const fileName = `venzell-update-${version}.exe`;
             
-            if (statusText) {
-                statusText.textContent = 'Download failed';
-            }
+            // Save the file
+            saveBlobLocally(blob, fileName);
             
+            // Show completion notification and clean up
+            showNotification(`Update v${version} downloaded. Please check your downloads folder.`, 'success');
             removeProgressContainer();
-            showNotification(`Download failed: ${error.message}`, 'error');
-            
-            // Reset install link on error
-            if (installLink) {
-                installLink.textContent = 'Retry Download';
-            }
-            
-            // Offer direct browser download as a last resort
-            setTimeout(() => {
-                if (confirm('Download failed. Would you like to open the download link in a new tab?')) {
-                    window.open(url, '_blank');
-                }
-            }, 1000);
-        });
+        } else {
+            removeProgressContainer();
+        }
+    };
+
+    xhr.onerror = function(error) {
+        console.error('XHR download error:', error);
+        showNotification('Download error: Could not connect to server', 'error');
+        removeProgressContainer();
+    };
+
+    xhr.onabort = function() {
+        console.log('Download aborted');
+        showNotification('Download was aborted', 'warning');
+        removeProgressContainer();
+    };
+
+    xhr.send();
 }
 
 // Helper to save a blob locally
@@ -1551,42 +1676,25 @@ function saveBlobLocally(blob, fileName) {
 
 // Function to show update complete notification
 function showUpdateComplete(version, filePath) {
-    console.log(`Download complete for version ${version}, file saved to: ${filePath}`);
+    // Remove progress container and overlay
+    const progressContainer = document.getElementById('updateProgressContainer');
+    const overlay = document.getElementById('updateOverlay');
     
-    // Remove the progress container if it exists
-    removeProgressContainer();
-    
-    // Show completion notification
-    showNotification(`Update ${version} downloaded successfully!`, 'success');
-    
-    // Update UI elements
-    const downloadStatus = document.getElementById('downloadStatus');
-    if (downloadStatus) {
-        downloadStatus.textContent = `Update ${version} downloaded successfully!`;
+    if (progressContainer) {
+        progressContainer.remove();
+        console.log('Removed progress container');
     }
     
-    // Update install link behavior
-    const installLink = document.getElementById('installUpdateLink');
-    if (installLink) {
-        // Remove any existing event listeners by cloning and replacing the element
-        const newInstallLink = installLink.cloneNode(true);
-        installLink.parentNode.replaceChild(newInstallLink, installLink);
-        
-        // Add new event listener for installation
-        newInstallLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            // Open the downloaded file
-            if (filePath) {
-                console.log(`Attempting to open downloaded file at: ${filePath}`);
-                window.ipcRenderer.send('open-file', filePath);
-                showNotification('Opening installer...', 'info');
-            } else {
-                showNotification('Installation file path not available', 'error');
-            }
-        });
-        
-        // Update link text and style to indicate it's ready for installation
-        newInstallLink.textContent = 'Install Update Now';
-        newInstallLink.classList.add('ready-to-install');
+    if (overlay) {
+        overlay.remove();
+        console.log('Removed overlay');
     }
+    
+    // Update message element
+    const updateMessage = document.getElementById('updateMessage');
+    if (updateMessage) {
+        updateMessage.innerHTML = `<span class="update-complete">Update v${version} downloaded!</span>`;
+    }
+    
+    showNotification(`Update downloaded as ${fileName}. Please install manually.`, 'success');
 }

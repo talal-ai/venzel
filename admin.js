@@ -4291,6 +4291,9 @@ function handleUpdateUpload(event) {
     const formData = new FormData(document.getElementById('updateForm'));
     const sessionId = localStorage.getItem('session_id');
     
+    // Add sessionId to the form data for server-side authentication
+    formData.append('sessionId', sessionId);
+    
     // Get form values for validation
     const version = formData.get('version');
     const platform = formData.get('platform');
@@ -4335,6 +4338,15 @@ function handleUpdateUpload(event) {
         return;
     }
     
+    // Check file size and show a warning for large files
+    const fileSizeMB = updateFile.size / (1024 * 1024);
+    if (fileSizeMB > 50) {
+        showNotification(
+            `Large file detected (${fileSizeMB.toFixed(2)}MB). Upload may take some time and the page might appear to freeze. Please be patient.`, 
+            'warning'
+        );
+    }
+    
     // Show loading state and create progress bar
     const submitButton = document.querySelector('#updateForm button[type="submit"]');
     const originalButtonText = submitButton.innerHTML;
@@ -4362,6 +4374,9 @@ function handleUpdateUpload(event) {
     // Create XMLHttpRequest to track progress
     const xhr = new XMLHttpRequest();
     
+    // Set longer timeout for large files
+    xhr.timeout = 15 * 60 * 1000; // 15 minutes timeout
+    
     xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
             const percentComplete = Math.round((e.loaded / e.total) * 100);
@@ -4370,6 +4385,15 @@ function handleUpdateUpload(event) {
             
             // Update button text with percentage
             submitButton.innerHTML = `<i class="fas fa-upload"></i> Uploading... ${percentComplete}%`;
+            
+            // When upload reaches 100%, show a processing message
+            if (percentComplete === 100) {
+                progressText.textContent = "100% - Processing file...";
+                showNotification(
+                    "Upload complete. Server is now processing the file. Please wait...", 
+                    "info"
+                );
+            }
         }
     });
 
@@ -4385,13 +4409,25 @@ function handleUpdateUpload(event) {
                     loadVersionInfo();
                     loadUpdateHistory();
                 } else {
-                    showNotification(`Failed to upload update: ${response.message}`, 'error');
+                    showNotification(`Failed to upload update: ${response.message || 'Unknown error'}`, 'error');
+                    console.error('Server responded with error:', response);
                 }
             } catch (error) {
                 showNotification('Error processing server response', 'error');
+                console.error('Error parsing server response:', error, xhr.responseText);
             }
         } else {
             showNotification(`Upload failed with status: ${xhr.status}`, 'error');
+            console.error('Server responded with status:', xhr.status, xhr.statusText);
+            if (xhr.responseText) {
+                try {
+                    const errorResponse = JSON.parse(xhr.responseText);
+                    console.error('Error details:', errorResponse);
+                    showNotification(`Error: ${errorResponse.message || errorResponse.error || 'Unknown error'}`, 'error');
+                } catch (e) {
+                    console.error('Raw response:', xhr.responseText);
+                }
+            }
         }
 
         // Reset UI
@@ -4401,7 +4437,16 @@ function handleUpdateUpload(event) {
     });
 
     xhr.addEventListener('error', () => {
-        showNotification('Error uploading update. Check console for details.', 'error');
+        showNotification('Network error during upload. Check your connection and try again.', 'error');
+        console.error('Network error during upload.');
+        submitButton.innerHTML = originalButtonText;
+        submitButton.disabled = false;
+        progressContainer.remove();
+    });
+
+    xhr.addEventListener('timeout', () => {
+        showNotification('Upload timed out. The file may be too large or the server may be busy.', 'error');
+        console.error('Upload timed out after 15 minutes.');
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
         progressContainer.remove();
@@ -4603,5 +4648,399 @@ function debugVersionFiles() {
     
     // Open debug endpoint in new window/tab
     window.open(`${getApiBaseUrl()}/debug/update-files`, '_blank');
+}
+
+// Add this after the loadUserServices function
+
+// Function to load reseller services
+function loadResellerServices() {
+    // Show loading state in the table
+    const tableBody = document.getElementById('resellerServicesList');
+    if (tableBody) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="loading-state">
+                    <i class="fas fa-spinner fa-spin"></i> Loading services...
+                </td>
+            </tr>
+        `;
+    }
+
+    return Promise.all([
+        fetch(getApiBaseUrl() + '/admin/resellers').then(res => res.json()),
+        fetch(getApiBaseUrl() + '/admin/services').then(res => res.json())
+    ])
+    .then(([resellers, services]) => {
+        if (!tableBody) return;
+        tableBody.innerHTML = '';
+
+        resellers.forEach(reseller => {
+            // Use reseller.email as the username
+            const username = reseller.email;
+            
+            // Fetch this reseller's assigned services
+            fetch(getApiBaseUrl() + `/admin/reseller-services/${username}`)
+                .then(res => res.json())
+                .then(resellerServices => {
+                    const row = document.createElement('tr');
+                    
+                    // Get array of assigned service names
+                    const assignedServices = Object.keys(resellerServices)
+                        .filter(service => resellerServices[service].isAssigned);
+                    
+                    // Get array of available services not yet assigned
+                    const availableServices = Object.keys(services)
+                        .filter(service => !assignedServices.includes(service));
+                    
+                    row.innerHTML = `
+                        <td>${username}</td>
+                        <td>${reseller.role || 'reseller'}</td>
+                        <td>
+                            <button class="table-action-btn" onclick='showResellerServiceDetails("${username}", ${JSON.stringify(assignedServices)})'>
+                                <i class="fas fa-eye"></i> View Services
+                            </button>
+                        </td>
+                        <td>
+                            <select class="service-select" onchange="handleResellerServiceAction('${username}', this.value, 'add')" 
+                                    ${Object.keys(services).length === assignedServices.length ? 'disabled' : ''}>
+                                <option value="">Add service...</option>
+                                ${availableServices
+                                    .map(service => `<option value="${service}">${service}</option>`)
+                                    .join('')}
+                            </select>
+                        </td>
+                        <td>
+                            ${assignedServices.length} services assigned
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                })
+                .catch(error => {
+                    console.error(`Error loading services for reseller ${username}:`, error);
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${username}</td>
+                        <td>${reseller.role || 'reseller'}</td>
+                        <td colspan="3">
+                            <div class="error-state">
+                                <i class="fas fa-exclamation-circle"></i> Error loading services
+                            </div>
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+        });
+    })
+    .catch(error => {
+        console.error('Error loading reseller services:', error);
+        if (tableBody) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="error-state">
+                        <i class="fas fa-exclamation-circle"></i> Error loading services. Please try again.
+                    </td>
+                </tr>
+            `;
+        }
+    });
+}
+
+// Function to handle service actions for resellers (add/remove)
+function handleResellerServiceAction(username, service, action) {
+    if (!service) return;
+
+    const detailsPopup = document.getElementById('resellerServicesPopup');
+    const popup = document.getElementById('serviceAssignPopup');
+    const usernameSpan = document.getElementById('popupUsername');
+    const serviceSpan = document.getElementById('popupService');
+    const confirmBtn = document.getElementById('confirmAssign');
+    const confirmMessage = popup.querySelector('.confirmation-message');
+    
+    // Setup popup display
+    if (detailsPopup) {
+        detailsPopup.style.display = 'none';
+    }
+    document.querySelectorAll('.popup-overlay').forEach(p => p.classList.remove('active'));
+    popup.classList.add('active');
+    
+    usernameSpan.textContent = username;
+    serviceSpan.textContent = service;
+    
+    // Update popup content based on action
+    if (action === 'add') {
+        confirmBtn.innerHTML = '<i class="fas fa-check"></i> Grant Access';
+        confirmBtn.classList.remove('delete');
+        confirmMessage.innerHTML = `
+            Do you want to grant access to <span class="service-name">${service}</span> 
+            for reseller <span class="username">${username}</span>?
+        `;
+    } else {
+        confirmBtn.innerHTML = '<i class="fas fa-times"></i> Remove Access';
+        confirmBtn.classList.add('delete');
+        confirmMessage.innerHTML = `
+            Do you want to remove access to <span class="service-name">${service}</span> 
+            from reseller <span class="username">${username}</span>?
+        `;
+    }
+    
+    popup.style.display = 'flex';
+
+    // Handle confirm action
+    const handleConfirm = () => {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+        fetch(getApiBaseUrl() + '/admin/assign-reseller-service', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                resellerUsername: username, 
+                serviceName: service,
+                sessionId: localStorage.getItem('session_id')
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Perform all updates simultaneously
+                Promise.all([
+                    // Refresh main services table
+                    loadResellerServices(),
+                    // Update service statistics
+                    updateServiceStats()
+                ]).then(() => {
+                    showNotification(data.message, 'success');
+                    
+                    // Reset any service dropdowns
+                    document.querySelectorAll('.service-select').forEach(select => {
+                        select.value = '';
+                    });
+                });
+            } else {
+                showNotification(data.message || 'Operation failed', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Operation failed', 'error');
+        })
+        .finally(() => {
+            popup.style.display = 'none';
+            popup.classList.remove('active');
+            confirmBtn.disabled = false;
+            
+            // Show the details popup again after operation is complete if it was open
+            if (action === 'remove' && detailsPopup) {
+                detailsPopup.style.display = 'flex';
+                detailsPopup.classList.add('active');
+                // Refresh the details popup content
+                showResellerServiceDetails(username);
+            }
+        });
+    };
+
+    confirmBtn.onclick = handleConfirm;
+    
+    // Handle close
+    const handleClose = () => {
+        popup.style.display = 'none';
+        popup.classList.remove('active');
+        // Show the details popup again when closing if it was open
+        if (detailsPopup) {
+            detailsPopup.style.display = 'flex';
+            detailsPopup.classList.add('active');
+        }
+    };
+
+    document.getElementById('cancelAssign').onclick = handleClose;
+    popup.querySelector('.close-popup').onclick = handleClose;
+}
+
+// Function to show reseller services details
+function showResellerServiceDetails(username, servicesArray) {
+    const popup = document.getElementById('resellerServicesPopup') || createResellerServicesPopup();
+    document.querySelectorAll('.popup-overlay').forEach(p => p.classList.remove('active'));
+    popup.classList.add('active');
+    
+    const usernameEl = popup.querySelector('.username');
+    const roleBadge = popup.querySelector('.role-badge');
+    const servicesList = popup.querySelector('.services-list');
+    
+    usernameEl.textContent = username;
+    roleBadge.textContent = 'Reseller';
+    servicesList.innerHTML = '<div class="loading-spinner"></div> Loading services...';
+
+    // Fetch service details from API
+    fetch(getApiBaseUrl() + `/admin/reseller-services/${username}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error fetching reseller services: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(services => {
+            servicesList.innerHTML = '';
+            
+            // Filter to only assigned services
+            const assignedServices = Object.keys(services).filter(name => services[name].isAssigned);
+            
+            if (assignedServices.length === 0) {
+                servicesList.innerHTML = `
+                    <div class="no-services">
+                        <i class="fas fa-info-circle"></i>
+                        No services assigned to this reseller
+                    </div>
+                `;
+                return;
+            }
+            
+            // Store intervals for cleanup
+            const intervals = [];
+            
+            assignedServices.forEach(serviceName => {
+                const serviceData = services[serviceName];
+                const details = serviceData.assignmentDetails || {};
+                const now = new Date();
+                const assignedDate = details.assignedDate ? new Date(details.assignedDate) : null;
+                const expirationDate = details.expirationDate ? new Date(details.expirationDate) : null;
+                
+                let timeLeft = 0;
+                let timeLeftDisplay = '(Expired)';
+                
+                if (expirationDate && expirationDate > now) {
+                    timeLeft = expirationDate - now;
+                    timeLeftDisplay = formatTimeRemaining(timeLeft);
+                }
+
+                const serviceItem = document.createElement('div');
+                serviceItem.className = 'service-item';
+                serviceItem.innerHTML = `
+                    <div class="service-info">
+                        <div class="service-icon">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                        <div class="service-details">
+                            <span class="service-name">${serviceName}</span>
+                            <div class="service-status">
+                                <div class="assigned-date">
+                                    Assigned: ${assignedDate ? formatDateTime(assignedDate) : 'N/A'}
+                                </div>
+                                <div class="expiration-date ${timeLeft > 0 && timeLeft < (24 * 60 * 60 * 1000) ? 'expiring-soon' : ''}">
+                                    Expires: ${expirationDate ? formatDateTime(expirationDate) : 'N/A'}
+                                    <span class="time-remaining">${timeLeftDisplay}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="service-actions">
+                        <button class="remove-service" onclick="handleResellerServiceAction('${username}', '${serviceName}', 'remove')">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                `;
+                servicesList.appendChild(serviceItem);
+
+                // Update time remaining every hour if service is not expired
+                if (timeLeft > 0) {
+                    const timeRemainingSpan = serviceItem.querySelector('.time-remaining');
+                    const expirationDiv = serviceItem.querySelector('.expiration-date');
+                    
+                    const updateInterval = setInterval(() => {
+                        const currentTime = new Date();
+                        const remainingTime = expirationDate - currentTime;
+                        
+                        if (remainingTime <= 0) {
+                            clearInterval(updateInterval);
+                            timeRemainingSpan.textContent = '(Expired)';
+                            expirationDiv.classList.remove('expiring-soon');
+                        } else {
+                            timeRemainingSpan.textContent = formatTimeRemaining(remainingTime);
+                            if (remainingTime < (24 * 60 * 60 * 1000)) { // Less than 24 hours
+                                expirationDiv.classList.add('expiring-soon');
+                            }
+                        }
+                    }, 3600000); // Update every hour
+                    
+                    intervals.push(updateInterval);
+                }
+            });
+            
+            popup.style.display = 'flex';
+            
+            // Clean up intervals when closing popup
+            const closeBtn = popup.querySelector('.close-popup');
+            closeBtn.onclick = () => {
+                intervals.forEach(interval => clearInterval(interval));
+                popup.style.display = 'none';
+                popup.classList.remove('active');
+            };
+        })
+        .catch(error => {
+            console.error('Error loading reseller services:', error);
+            servicesList.innerHTML = `
+                <div class="error-state">
+                    <i class="fas fa-exclamation-circle"></i>
+                    Error loading services: ${error.message}
+                </div>
+            `;
+        });
+}
+
+// Function to create reseller services popup if it doesn't exist
+function createResellerServicesPopup() {
+    const existingPopup = document.getElementById('resellerServicesPopup');
+    if (existingPopup) return existingPopup;
+    
+    const popup = document.createElement('div');
+    popup.id = 'resellerServicesPopup';
+    popup.className = 'popup-overlay';
+    popup.innerHTML = `
+        <div class="popup-content">
+            <span class="close-popup">&times;</span>
+            <div class="popup-header">
+                <h3>Services for <span class="username"></span></h3>
+                <span class="role-badge reseller">Reseller</span>
+            </div>
+            <div class="services-list"></div>
+        </div>
+    `;
+    
+    document.body.appendChild(popup);
+    return popup;
+}
+
+// Update the initializeUsersTabs function to include the reseller services tab
+function initializeUsersTabs() {
+    const tabButtons = document.querySelectorAll('#users-page .tab-button');
+    const tabContents = document.querySelectorAll('#users-page .tab-content');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            // Remove active class from all buttons and contents
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+
+            // Add active class to clicked button and corresponding content
+            button.classList.add('active');
+            const tabId = `${button.dataset.tab}-tab`;
+            document.getElementById(tabId).classList.add('active');
+
+            // Load data based on active tab
+            switch (button.dataset.tab) {
+                case 'allusers':
+                    loadAllUsers();
+                    break;
+                case 'services':
+                    loadServices();
+                    break;
+                case 'manageservices':
+                    loadUserServices();
+                    break;
+                case 'resellerservices':
+                    loadResellerServices();
+                    break;
+            }
+        });
+    });
 }
 

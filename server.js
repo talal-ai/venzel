@@ -31,19 +31,50 @@ const app = express();
 const PORT = process.env.PORT || 8095;
 const WS_PORT = process.env.WS_PORT || 8096;
 
+// Set timeout values for large file uploads
+app.timeout = 15 * 60 * 1000; // 15 minutes server timeout
+const server = require('http').createServer(app);
+server.timeout = 15 * 60 * 1000; // 15 minutes
+
+// Extended timeout for keep-alive connections
+server.keepAliveTimeout = 15 * 60 * 1000; // 15 minutes
+server.headersTimeout = 16 * 60 * 1000; // 16 minutes (must be higher than keepAliveTimeout)
+
 // Initialize WebSocket server
 const WebSocket = require('ws');
 let wss;
 try {
-  wss = new WebSocket.Server({ port: WS_PORT });
-  console.log(`✅ WebSocket server initialized on port ${WS_PORT}`);
+  // Create WebSocket server with increased timeout
+  const wsOptions = {
+    port: WS_PORT,
+    clientTracking: true,
+    perMessageDeflate: false, // Disable compression for large messages
+    maxPayload: 500 * 1024 * 1024, // 500MB max payload
+    // Set WebSocket timeout values
+    serverOptions: {
+      timeout: 15 * 60 * 1000 // 15 minutes timeout
+    }
+  };
+  
+  wss = new WebSocket.Server(wsOptions);
+  console.log(`✅ WebSocket server initialized on port ${WS_PORT} with extended timeout`);
 } catch (error) {
   console.error(`❌ Error starting WebSocket server on port ${WS_PORT}:`, error.message);
   console.log(`📌 Trying alternate port ${WS_PORT + 1}...`);
   try {
-    // Try a different port
-    wss = new WebSocket.Server({ port: WS_PORT + 1 });
-    console.log(`✅ WebSocket server initialized on alternate port ${WS_PORT + 1}`);
+    // Try a different port with same timeout settings
+    const wsOptions = {
+      port: WS_PORT + 1,
+      clientTracking: true,
+      perMessageDeflate: false,
+      maxPayload: 500 * 1024 * 1024,
+      serverOptions: {
+        timeout: 15 * 60 * 1000
+      }
+    };
+    
+    wss = new WebSocket.Server(wsOptions);
+    console.log(`✅ WebSocket server initialized on alternate port ${WS_PORT + 1} with extended timeout`);
   } catch (fallbackError) {
     console.error(`❌ Failed to start WebSocket server on alternate port:`, fallbackError.message);
     // Continue without WebSocket functionality
@@ -138,7 +169,10 @@ app.get('/', (req, res) => {
 });
 
 // High-priority reseller services endpoint that doesn't require authentication
-app.get('/reseller/services', (req, res) => {
+// NOTE: This route is superseded by the implementation later in the file that
+// properly filters services based on what's assigned to each reseller.
+// This version is kept for backward compatibility with tests.
+app.get('/reseller/services-debug', (req, res) => {
     try {
         // Don't require authentication for testing
         const services = getServices();
@@ -153,22 +187,11 @@ app.get('/reseller/services', (req, res) => {
         }, {});
         res.json(servicesWithFeatures);
     } catch (error) {
-        console.error('Error in /reseller/services:', error);
+        console.error('Error in /reseller/services-debug:', error);
         res.status(500).json({ error: 'Failed to fetch services' });
     }
 });
 
-// Test endpoint for connectivity checks
-app.get('/test-connection', (req, res) => {
-    res.json({
-        status: 'success',
-        message: 'Connection test successful',
-        timestamp: new Date().toISOString(),
-        headers: req.headers,
-        cookies: req.cookies || {},
-        session: req.session || {}
-    });
-});
 
 // ✅ Serve static files from the correct directory
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
@@ -213,7 +236,12 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ 
+    limit: '50mb',
+    extended: true,
+    parameterLimit: 50000
+}));
 
 // Define data directory path once and use it consistently throughout the app
 const dataDirectory = path.join(__dirname, 'sessions', 'data');
@@ -380,7 +408,41 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({ storage: storage });
+// Configure multer storage specifically for app updates
+const updateStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        // Store update files in a temporary directory first
+        const dir = path.join(__dirname, 'updates', 'temp');
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        cb(null, dir);
+    },
+    filename: function (req, file, cb) {
+        // Preserve original extension but use timestamp for filename
+        const timestamp = Date.now();
+        const ext = path.extname(file.originalname);
+        cb(null, `update-${timestamp}${ext}`);
+    }
+});
+
+// Regular upload instance for normal uploads
+const upload = multer({ 
+    storage: storage,
+    limits: {
+        fileSize: 50 * 1024 * 1024 // 50MB limit for regular uploads
+    }
+});
+
+// Special upload instance for app updates with much higher limits
+const updateUpload = multer({
+    storage: updateStorage,
+    limits: {
+        fileSize: 1024 * 1024 * 1024, // 1GB limit for app updates
+        fieldSize: 100 * 1024 * 1024, // 100MB field size limit
+        files: 1 // Only allow one file per request
+    }
+});
 
 // ✅ Login Route
 app.post('/auth', (req, res) => {
@@ -2317,34 +2379,88 @@ const startServer = () => {
       // Add the route directly here as a fallback
       app.get('/reseller/services', (req, res) => {
         try {
+          // Get the session ID from request headers
+          const authHeader = req.headers.authorization || '';
+          const sessionId = authHeader.replace('Bearer ', '');
+          
+          // Verify that the request is from a reseller
+          const sessions = getSessions();
+          let isReseller = false;
+          let resellerUsername = '';
+          
+          for (const username in sessions) {
+            if (sessions[username].sessionId === sessionId && sessions[username].role === 'reseller') {
+              isReseller = true;
+              resellerUsername = username;
+              break;
+            }
+          }
+          
+          if (!isReseller) {
+            return res.status(403).json({ 
+              status: 'error',
+              message: 'Unauthorized access. Only resellers can access this endpoint.'
+            });
+          }
+          
           const services = getServices();
           const users = getUsers();
-          const servicesWithStats = Object.entries(services).reduce((acc, [serviceName, service]) => {
-            let activeUsers = 0;
-            for (const username in users) {
-              if (users[username].services && users[username].services.includes(serviceName)) {
-                activeUsers++;
+          
+          // Check if the reseller has assigned services
+          const resellerUser = users[resellerUsername];
+          if (!resellerUser) {
+            return res.status(404).json({
+              status: 'error',
+              message: 'Reseller user not found'
+            });
+          }
+          
+          // Get the services assigned to this reseller
+          const assignedServices = resellerUser.services || [];
+          
+          // If no services assigned, return empty object
+          if (assignedServices.length === 0) {
+            return res.json({});
+          }
+          
+          // Filter services to only include those assigned to this reseller
+          const servicesWithStats = {};
+          assignedServices.forEach(serviceName => {
+            if (services[serviceName]) {
+              // Count active users for this service
+              let activeUsers = 0;
+              for (const username in users) {
+                if (users[username].services && 
+                    users[username].services.includes(serviceName) && 
+                    users[username].createdBy === resellerUsername) {
+                  activeUsers++;
+                }
               }
+              
+              // Add service to response with additional information
+              servicesWithStats[serviceName] = {
+                ...services[serviceName],
+                activeUsers,
+                isActive: services[serviceName].status === 'active'
+              };
             }
-            acc[serviceName] = {
-              ...service,
-              activeUsers,
-              isActive: service.status === 'active'
-            };
-            return acc;
-          }, {});
+          });
+          
           res.json(servicesWithStats);
         } catch (error) {
+          console.error('Error in fallback /reseller/services route:', error);
           res.status(500).json({ error: 'Failed to fetch services' });
         }
       });
       console.log('✅ Added fallback /reseller/services route');
     }
     
+    // Use server.listen instead of app.listen to use our configured HTTP server with timeout
     app.listen(PORT, () => {
       console.log(`✅ Server running at https://venzell.skplay.net:${PORT}`);
       console.log(`✅ WebSocket server running at wss://venzell.skplay.net:${wss.address()?.port || 'N/A'}`);
       console.log(`✅ Server environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`✅ Server timeout set to ${server.timeout/60000} minutes for large file uploads`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
@@ -2528,31 +2644,283 @@ app.get('/reseller/services', (req, res) => {
         const services = getServices();
         const users = getUsers();
         
-        // Calculate active users for each service
-        const servicesWithStats = Object.entries(services).reduce((acc, [serviceName, service]) => {
+        // Check if the reseller has assigned services
+        const resellerUser = users[resellerUsername];
+        if (!resellerUser) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'Reseller user not found'
+            });
+        }
+        
+        // Get the services assigned to this reseller
+        const assignedServices = resellerUser.services || [];
+        
+        // Filter services to only include those assigned to this reseller
+        const servicesWithStats = {};
+        assignedServices.forEach(serviceName => {
+            if (services[serviceName]) {
             // Count active users for this service
             let activeUsers = 0;
             for (const username in users) {
-                if (users[username].services && users[username].services.includes(serviceName)) {
+                    if (users[username].services && 
+                        users[username].services.includes(serviceName) && 
+                        users[username].createdBy === resellerUsername) {
                     activeUsers++;
                 }
             }
             
             // Add service to response with additional information
-            acc[serviceName] = {
-                ...service,
+                servicesWithStats[serviceName] = {
+                    ...services[serviceName],
                 activeUsers,
-                isActive: service.status === 'active',
-                // Add features array if it doesn't exist
-                features: service.features || [
+                    isActive: services[serviceName].status === 'active',
+                    features: services[serviceName].features || [
                     "Basic support",
                     "Standard performance",
                     "Regular updates"
                 ]
             };
+            }
+        });
+        
+        res.json(servicesWithStats);
+    } catch (error) {
+        console.error('Error fetching services for reseller:', error);
+        res.status(500).json({ 
+            status: 'error',
+            message: 'Failed to fetch services'
+        });
+    }
+});
+
+// Add endpoint for admins to assign services to resellers
+app.post('/admin/assign-reseller-service', (req, res) => {
+    try {
+        const { resellerUsername, serviceName, sessionId } = req.body;
+        
+        if (!resellerUsername || !serviceName || !sessionId) {
+            return res.status(400).json({ 
+                status: 'error',
+                message: 'Missing required fields: resellerUsername, serviceName, sessionId'
+            });
+        }
+        
+        // Verify admin session
+        const sessions = getSessions();
+        let isAdmin = false;
+        let adminUsername = '';
+        
+        for (const username in sessions) {
+            if (sessions[username].sessionId === sessionId && sessions[username].role === 'admin') {
+                isAdmin = true;
+                adminUsername = username;
+                break;
+            }
+        }
+        
+        if (!isAdmin) {
+            return res.status(403).json({ 
+                status: 'error',
+                message: 'Unauthorized access. Only admins can assign services to resellers.'
+            });
+        }
+        
+        // Get users and services data
+        const users = getUsers();
+        const services = getServices();
+        
+        // Check if reseller exists and is actually a reseller
+        if (!users[resellerUsername]) {
+            return res.status(404).json({ 
+                status: 'error',
+                message: 'Reseller not found'
+            });
+        }
+        
+        if (users[resellerUsername].role !== 'reseller') {
+            return res.status(400).json({ 
+                status: 'error',
+                message: 'User is not a reseller'
+            });
+        }
+        
+        // Check if service exists
+        if (!services[serviceName]) {
+            return res.status(404).json({ 
+                status: 'error',
+                message: 'Service not found'
+            });
+        }
+        
+        // Initialize services array if it doesn't exist
+        if (!users[resellerUsername].services) {
+            users[resellerUsername].services = [];
+        }
+        
+        // Initialize serviceDetails object if it doesn't exist
+        if (!users[resellerUsername].serviceDetails) {
+            users[resellerUsername].serviceDetails = {};
+        }
+        
+        // Check if the service is already assigned
+        const isServiceAssigned = users[resellerUsername].services.includes(serviceName);
+        
+        if (isServiceAssigned) {
+            // Remove the service (toggle behavior)
+            users[resellerUsername].services = users[resellerUsername].services.filter(s => s !== serviceName);
+            if (users[resellerUsername].serviceDetails[serviceName]) {
+                delete users[resellerUsername].serviceDetails[serviceName];
+            }
             
-            return acc;
-        }, {});
+            // Save changes
+            saveUsers(users);
+            
+            return res.json({ 
+                status: 'success',
+                message: `Service "${serviceName}" has been removed from reseller ${resellerUsername}`,
+                action: 'removed'
+            });
+        } else {
+            // Assign the service with expiration date
+            const now = new Date();
+            const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+            const expiration = new Date(now.getTime() + thirtyDaysInMs);
+            
+            users[resellerUsername].services.push(serviceName);
+            users[resellerUsername].serviceDetails[serviceName] = {
+                assignedDate: now.toISOString(),
+                expirationDate: expiration.toISOString(),
+                assignedBy: adminUsername
+            };
+            
+            // Save changes
+            saveUsers(users);
+            
+            return res.json({ 
+                status: 'success',
+                message: `Service "${serviceName}" has been assigned to reseller ${resellerUsername}`,
+                action: 'assigned'
+            });
+        }
+    } catch (error) {
+        console.error('Error assigning service to reseller:', error);
+        res.status(500).json({ 
+            status: 'error',
+            message: 'Failed to assign service to reseller'
+        });
+    }
+});
+
+// Endpoint for admins to get reseller services
+app.get('/admin/reseller-services/:username', (req, res) => {
+    try {
+        const { username } = req.params;
+        
+        // Get the session ID from request headers
+        const authHeader = req.headers.authorization || '';
+        const sessionId = authHeader.replace('Bearer ', '');
+        
+        // Verify admin session
+        const sessions = getSessions();
+        let isAdmin = false;
+        
+        for (const user in sessions) {
+            if (sessions[user].sessionId === sessionId && sessions[user].role === 'admin') {
+                isAdmin = true;
+                break;
+            }
+        }
+        
+        if (!isAdmin) {
+            return res.status(403).json({ 
+                status: 'error',
+                message: 'Unauthorized access. Only admins can view reseller services.'
+            });
+        }
+        
+        // Get users and services data
+        const users = getUsers();
+        const services = getServices();
+        
+        // Check if reseller exists
+        if (!users[username]) {
+            return res.status(404).json({ 
+                status: 'error',
+                message: 'Reseller not found'
+            });
+        }
+        
+        // Get assigned services
+        const assignedServices = users[username].services || [];
+        const serviceDetails = users[username].serviceDetails || {};
+        
+        // Prepare response data
+        const servicesData = {};
+        
+        // Add all available services with assignment status
+        Object.keys(services).forEach(serviceName => {
+            const isAssigned = assignedServices.includes(serviceName);
+            servicesData[serviceName] = {
+                ...services[serviceName],
+                isAssigned,
+                assignmentDetails: isAssigned ? serviceDetails[serviceName] : null
+            };
+        });
+        
+        res.json(servicesData);
+    } catch (error) {
+        console.error('Error fetching reseller services:', error);
+        res.status(500).json({ 
+            status: 'error',
+            message: 'Failed to fetch reseller services'
+        });
+    }
+});
+
+// Update the simple reseller services endpoint with the same filtering logic
+app.get('/reseller/services-public', (req, res) => {
+    try {
+        // Get the query parameter for the reseller username
+        const { username } = req.query;
+        
+        if (!username) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Missing reseller username'
+            });
+        }
+        
+        const services = getServices();
+        const users = getUsers();
+        
+        // Check if the reseller exists
+        if (!users[username] || users[username].role !== 'reseller') {
+            return res.status(404).json({
+                status: 'error',
+                message: 'Reseller not found'
+            });
+        }
+        
+        // Get the services assigned to this reseller
+        const assignedServices = users[username].services || [];
+        
+        // Filter services to only include those assigned to this reseller
+        const servicesWithStats = {};
+        assignedServices.forEach(serviceName => {
+            if (services[serviceName]) {
+                servicesWithStats[serviceName] = {
+                    ...services[serviceName],
+                    activeUsers: 0, // Placeholder
+                    isActive: services[serviceName].status === 'active',
+                    features: services[serviceName].features || [
+                        "Basic support",
+                        "Standard performance",
+                        "Regular updates"
+                    ]
+                };
+            }
+        });
         
         res.json(servicesWithStats);
     } catch (error) {
@@ -3077,34 +3445,78 @@ app.get('/reseller/services-public', (req, res) => {
 // Simplified reseller services endpoint with minimal authentication
 app.get('/reseller/services', (req, res) => {
     try {
+        // Get the session ID from request headers
+        const authHeader = req.headers.authorization || '';
+        const sessionId = authHeader.replace('Bearer ', '');
+        
+        // Verify that the request is from a reseller
+        const sessions = getSessions();
+        let isReseller = false;
+        let resellerUsername = '';
+        
+        for (const username in sessions) {
+            if (sessions[username].sessionId === sessionId && sessions[username].role === 'reseller') {
+                isReseller = true;
+                resellerUsername = username;
+                break;
+            }
+        }
+        
+        if (!isReseller) {
+            return res.status(403).json({ 
+                status: 'error',
+                message: 'Unauthorized access. Only resellers can access this endpoint.'
+            });
+        }
+        
         // Get services and users data
         const services = getServices();
         const users = getUsers();
         
-        // Calculate active users for each service
-        const servicesWithStats = Object.entries(services).reduce((acc, [serviceName, service]) => {
-            // Count active users for this service
-            let activeUsers = 0;
-            for (const username in users) {
-                if (users[username].services && users[username].services.includes(serviceName)) {
-                    activeUsers++;
+        // Check if the reseller has assigned services
+        const resellerUser = users[resellerUsername];
+        if (!resellerUser) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'Reseller user not found'
+            });
+        }
+        
+        // Get the services assigned to this reseller
+        const assignedServices = resellerUser.services || [];
+        
+        // If no services assigned, return empty object
+        if (assignedServices.length === 0) {
+            return res.json({});
+        }
+        
+        // Filter services to only include those assigned to this reseller
+        const servicesWithStats = {};
+        assignedServices.forEach(serviceName => {
+            if (services[serviceName]) {
+                // Count active users for this service
+                let activeUsers = 0;
+                for (const username in users) {
+                    if (users[username].services && 
+                        users[username].services.includes(serviceName) && 
+                        users[username].createdBy === resellerUsername) {
+                        activeUsers++;
+                    }
                 }
+                
+                // Add service to response with additional information
+                servicesWithStats[serviceName] = {
+                    ...services[serviceName],
+                    activeUsers,
+                    isActive: services[serviceName].status === 'active',
+                    features: services[serviceName].features || [
+                        "Basic support",
+                        "Standard performance",
+                        "Regular updates"
+                    ]
+                };
             }
-            
-            // Add service to response with additional information
-            acc[serviceName] = {
-                ...service,
-                activeUsers,
-                isActive: service.status === 'active',
-                features: service.features || [
-                    "Basic support",
-                    "Standard performance",
-                    "Regular updates"
-                ]
-            };
-            
-            return acc;
-        }, {});
+        });
         
         res.json(servicesWithStats);
     } catch (error) {
@@ -3843,10 +4255,9 @@ app.get('/reseller/profile', (req, res) => {
         // Construct full URL for profile picture if it exists
         let profilePicture = null;
         if (resellerData.profilePicture) {
-            // Get server's base URL (protocol + host)
-            const protocol = req.protocol;
-            const host = req.get('host');
-            profilePicture = `${protocol}://${host}/${resellerData.profilePicture}`;
+            // Use the live server URL directly
+            const apiBaseUrl = 'http://venzell.skplay.net';
+            profilePicture = `${apiBaseUrl}/${resellerData.profilePicture}`;
         }
         
         // Return reseller profile data
@@ -4361,12 +4772,40 @@ app.get('/updates/history', (req, res) => {
     }
 });
 
+// Helper function to get session by ID
+function getSessionById(sessionId) {
+    if (!sessionId) return null;
+    
+    const sessions = getSessions();
+    for (const username in sessions) {
+        if (sessions[username].sessionId === sessionId) {
+            return {
+                ...sessions[username],
+                username
+            };
+        }
+    }
+    
+    return null;
+}
+
 // Modify the upload update endpoint to also save to history
-app.post('/admin/upload-update', upload.single('updateFile'), async (req, res) => {
+app.post('/admin/upload-update', updateUpload.single('updateFile'), async (req, res) => {
     try {
+        console.log('Received update upload request with file size:', req.file ? req.file.size : 'unknown');
         const { version, platform, architecture, releaseNotes } = req.body;
         const updateFile = req.file;
         const updateLatestJson = req.body.updateLatestJson;
+        
+        // Verify authentication
+        const sessionId = req.body.sessionId;
+        const session = getSessionById(sessionId);
+        if (!session || session.role !== 'admin') {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Unauthorized. Admin privileges required.'
+            });
+        }
         
         // Validate inputs
         if (!version || !platform || !architecture || !updateFile) {
@@ -4391,6 +4830,8 @@ app.post('/admin/upload-update', upload.single('updateFile'), async (req, res) =
         if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
         }
+        
+        console.log(`Moving file from ${updateFile.path} to ${filePath}, size: ${updateFile.size} bytes`);
         
         // Move the uploaded file with the new name
         fs.renameSync(updateFile.path, filePath);
@@ -4486,7 +4927,8 @@ app.post('/admin/upload-update', upload.single('updateFile'), async (req, res) =
         console.error('Error uploading update file:', error);
         res.status(500).json({ 
             status: 'error', 
-            message: 'Failed to upload update file'
+            message: 'Failed to upload update file',
+            error: error.message
         });
     }
 });
@@ -4727,13 +5169,15 @@ platforms.forEach(platform => {
 });
 
 // Update the /admin/upload-update endpoint to handle platform-specific uploads
-app.post('/admin/upload-update', upload.single('updateFile'), async (req, res) => {
+app.post('/admin/upload-update', updateUpload.single('updateFile'), async (req, res) => {
     try {
         // Verify admin privileges
         const session = getSessionById(req.body.sessionId);
         if (!session || session.role !== 'admin') {
             return res.status(403).json({ success: false, message: 'Unauthorized access' });
         }
+
+        console.log(`Processing large file upload with size: ${req.file ? req.file.size : 'unknown'} bytes`);
 
         // Validate required fields
         const { version, releaseNotes, platform, architecture } = req.body;
@@ -4770,8 +5214,45 @@ app.post('/admin/upload-update', upload.single('updateFile'), async (req, res) =
         const filename = `app-${version}${fileExt}`;
         const filePath = path.join(platformDir, filename);
 
+        console.log(`Moving file from ${req.file.path} to ${filePath}, size: ${req.file.size} bytes`);
+
         // Move the uploaded file to the updates directory with the new name
-        fs.renameSync(req.file.path, filePath);
+        try {
+            // Create a read stream from the source file
+            const readStream = fs.createReadStream(req.file.path);
+            // Create a write stream to the destination
+            const writeStream = fs.createWriteStream(filePath);
+            
+            // Handle any errors that occur during the streaming process
+            readStream.on('error', (err) => {
+                console.error('Error reading from source file:', err);
+                throw err;
+            });
+            
+            writeStream.on('error', (err) => {
+                console.error('Error writing to destination file:', err);
+                throw err;
+            });
+            
+            // Return a promise that resolves when the stream is done
+            await new Promise((resolve, reject) => {
+                writeStream.on('finish', resolve);
+                writeStream.on('error', reject);
+                readStream.pipe(writeStream);
+            });
+            
+            // Delete the source file after successful move
+            fs.unlinkSync(req.file.path);
+            
+            console.log(`File successfully moved to ${filePath}`);
+        } catch (copyError) {
+            console.error('Error moving file:', copyError);
+            return res.status(500).json({ 
+                success: false, 
+                message: 'Error saving update file', 
+                error: copyError.message 
+            });
+        }
 
         // Update RELEASES files according to platform
         if (platform === 'win32') {
