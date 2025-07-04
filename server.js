@@ -29,7 +29,7 @@ process.on('unhandledRejection', (err) => {
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 8095;
-const WS_PORT = process.env.WS_PORT || 8096;
+const WS_PORT = process.env.WS_PORT || 8097; // Changed from 8096 to 8097
 
 // Set timeout values for large file uploads
 app.timeout = 15 * 60 * 1000; // 15 minutes server timeout

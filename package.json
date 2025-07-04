@@ -7,7 +7,10 @@
     "start": "electron .",
     "dev": "cross-env NODE_ENV=development electron .",
     "build": "electron-builder",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "server": "node server.js",
+    "server:dev": "nodemon server.js",
+    "start:server": "node server.js"
   },
   "author": "GEN7VEN",
   "license": "ISC",
